@@ -1,4 +1,4 @@
-import { HuefyClient, EmailProvider, SendEmailOptions, HuefyConfig } from '@huefy-dev/sdk';
+import { HuefyClient, EmailProvider, SendEmailOptions, HuefyConfig } from '@teracrafts/huefy';
 
 /**
  * TypeScript usage example for the Huefy SDK.

@@ -61,7 +61,7 @@ export default HuefyClient;
  * 
  * @example
  * ```typescript
- * import { createClient } from '@huefy/sdk';
+ * import { createClient } from '@teracrafts/huefy';
  * 
  * const huefy = createClient({
  *   apiKey: 'your-api-key'
@@ -79,13 +79,13 @@ export function createClient(config: import('./types.js').HuefyConfig): HuefyCli
 /**
  * Package version
  */
-export const VERSION = '1.0.0-beta.8';
+export const VERSION = '1.0.0-beta.9';
 
 /**
  * Package information
  */
 export const SDK_INFO = {
-  name: '@huefy-dev/sdk',
+  name: '@teracrafts/huefy',
   version: VERSION,
   language: 'JavaScript/TypeScript',
   repository: 'https://github.com/huefy/huefy-sdk',

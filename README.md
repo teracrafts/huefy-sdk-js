@@ -5,13 +5,13 @@ The official JavaScript/TypeScript SDK for Huefy - App Mail Templates. Create an
 ## Installation
 
 ```bash
-npm install @huefy-dev/sdk
+npm install @teracrafts/huefy
 ```
 
 ## Quick Start
 
 ```typescript
-import { HuefyClient } from '@huefy-dev/sdk';
+import { HuefyClient } from '@teracrafts/huefy';
 
 const huefy = new HuefyClient({
   apiKey: 'your-api-key'
