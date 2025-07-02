@@ -19,7 +19,6 @@ export type {
   SendEmailRequest,
   SendEmailResponse,
   ErrorResponse,
-  ValidationError,
   HealthResponse,
   HuefyResult,
   HuefyError as HuefyErrorType,
@@ -51,6 +50,7 @@ export {
 export { ErrorCode } from './types.js';
 
 // Default export for convenience
+import { HuefyClient } from './client.js';
 export default HuefyClient;
 
 /**
@@ -85,7 +85,7 @@ export const VERSION = '1.0.0-beta.1';
  * Package information
  */
 export const SDK_INFO = {
-  name: '@huefy/sdk',
+  name: '@huefy-dev/sdk',
   version: VERSION,
   language: 'JavaScript/TypeScript',
   repository: 'https://github.com/huefy/huefy-sdk',

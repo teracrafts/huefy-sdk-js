@@ -150,12 +150,17 @@ export class HttpClient {
         headers['Content-Type'] = 'application/json';
       }
 
-      const response = await fetch(url, {
+      const requestInit: RequestInit = {
         method,
         headers,
-        body: method === 'POST' && data ? JSON.stringify(data) : undefined,
         signal: controller.signal,
-      });
+      };
+      
+      if (method === 'POST' && data) {
+        requestInit.body = JSON.stringify(data);
+      }
+
+      const response = await fetch(url, requestInit);
 
       clearTimeout(timeoutId);
 
@@ -183,7 +188,7 @@ export class HttpClient {
         statusText: response.statusText,
         headers: this.extractHeaders(response.headers),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
 
       // Handle abort/timeout
@@ -192,8 +197,9 @@ export class HttpClient {
       }
 
       // Handle network errors
-      if (error instanceof TypeError || error.message.includes('fetch')) {
-        throw new NetworkError(`Network error: ${error.message}`, error);
+      if (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch'))) {
+        const message = error instanceof Error ? error.message : 'Unknown network error';
+        throw new NetworkError(`Network error: ${message}`, error instanceof Error ? error : undefined);
       }
 
       // Re-throw HuefyErrors as-is
