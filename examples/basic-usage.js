@@ -1,4 +1,4 @@
-const { HuefyClient, EmailProvider } = require('@huefy/sdk');
+const { HuefyClient, EmailProvider } = require('@huefy-dev/sdk');
 
 /**
  * Basic usage example for the Huefy JavaScript SDK.

@@ -5,13 +5,13 @@ The official JavaScript/TypeScript SDK for the Huefy email sending platform.
 ## Installation
 
 ```bash
-npm install @huefy/sdk
+npm install @huefy-dev/sdk@beta
 ```
 
 ## Quick Start
 
 ```typescript
-import { HuefyClient } from '@huefy/sdk';
+import { HuefyClient } from '@huefy-dev/sdk';
 
 const huefy = new HuefyClient({
   apiKey: 'your-api-key'
@@ -105,7 +105,7 @@ import {
   HuefyError, 
   TemplateNotFoundError, 
   RateLimitError 
-} from '@huefy/sdk';
+} from '@huefy-dev/sdk';
 
 try {
   await huefy.sendEmail('template-key', data, 'user@example.com');
