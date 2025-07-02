@@ -79,7 +79,7 @@ export function createClient(config: import('./types.js').HuefyConfig): HuefyCli
 /**
  * Package version
  */
-export const VERSION = '1.0.0-beta.3';
+export const VERSION = '1.0.0-beta.8';
 
 /**
  * Package information

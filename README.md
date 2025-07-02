@@ -1,11 +1,11 @@
 # Huefy SDK for JavaScript/TypeScript
 
-The official JavaScript/TypeScript SDK for the Huefy email sending platform.
+The official JavaScript/TypeScript SDK for Huefy - App Mail Templates. Create and manage email templates for your applications with dynamic data and multi-provider sending capabilities.
 
 ## Installation
 
 ```bash
-npm install @huefy-dev/sdk@beta
+npm install @huefy-dev/sdk
 ```
 
 ## Quick Start
