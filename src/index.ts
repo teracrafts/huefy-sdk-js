@@ -88,6 +88,6 @@ export const SDK_INFO = {
   name: '@teracrafts/huefy',
   version: VERSION,
   language: 'JavaScript/TypeScript',
-  repository: 'https://github.com/huefy/huefy-sdk',
+  repository: 'https://github.com/teracrafts/huefy-sdk',
   documentation: 'https://docs.huefy.com/sdk/javascript',
 } as const;
