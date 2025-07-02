@@ -1,5 +1,5 @@
 {
-  "name": "@huefy/sdk",
+  "name": "@huefy-dev/sdk",
   "version": "1.0.0-beta.1",
   "description": "JavaScript/TypeScript SDK for Huefy email sending platform",
   "main": "dist/index.js",
