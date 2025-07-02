@@ -110,7 +110,7 @@ describe('HuefyClient', () => {
         data: {
           success: true,
           message: 'Email sent successfully',
-          message_id: 'test-id',
+          messageId: 'test-id',
           provider: 'ses',
         },
       });

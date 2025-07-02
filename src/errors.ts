@@ -72,7 +72,7 @@ export class AuthenticationError extends HuefyError {
 export class TemplateNotFoundError extends HuefyError {
   constructor(templateKey: string, details?: any) {
     super(`Template '${templateKey}' not found`, 'TEMPLATE_NOT_FOUND', 404, {
-      template_key: templateKey,
+      templateKey: templateKey,
       ...details,
     });
     this.name = 'TemplateNotFoundError';
@@ -165,7 +165,7 @@ export function createErrorFromResponse(
     
     case 'TEMPLATE_NOT_FOUND':
       return new TemplateNotFoundError(
-        data.details?.template_key || 'unknown',
+        data.details?.templateKey || data.details?.template_key || 'unknown',
         data.details,
       );
     

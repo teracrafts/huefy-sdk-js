@@ -44,13 +44,13 @@ export interface SendEmailOptions {
  */
 export interface SendEmailRequest {
   /** The template key/identifier */
-  template_key: string;
+  templateKey: string;
   /** Template variables */
   data: EmailData;
   /** Recipient email address */
   recipient: string;
   /** Email provider (optional, defaults to 'ses') */
-  provider_type?: EmailProvider;
+  providerType?: EmailProvider;
 }
 
 /**
@@ -62,7 +62,7 @@ export interface SendEmailResponse {
   /** Human-readable status message */
   message: string;
   /** Unique identifier for the sent email */
-  message_id: string;
+  messageId: string;
   /** The provider that was used to send the email */
   provider: EmailProvider;
 }
@@ -90,9 +90,9 @@ export interface ErrorResponse {
   /** Additional error details */
   details?: {
     [key: string]: any;
-    template_key?: string;
-    missing_variables?: string[];
-    validation_errors?: ValidationError[];
+    templateKey?: string;
+    missingVariables?: string[];
+    validationErrors?: ValidationError[];
   };
 }
 

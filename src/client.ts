@@ -85,10 +85,10 @@ export class HuefyClient {
 
     // Build request payload
     const request: SendEmailRequest = {
-      template_key: templateKey,
+      templateKey: templateKey,
       data,
       recipient,
-      ...(options?.provider && { provider_type: options.provider }),
+      ...(options?.provider && { providerType: options.provider }),
     };
 
     try {
