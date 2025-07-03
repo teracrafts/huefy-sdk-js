@@ -38,11 +38,10 @@
   "homepage": "https://www.huefy.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/teracrafts/huefy-sdk.git",
-    "directory": "sdks/javascript"
+    "url": "git+https://github.com/teracrafts/huefy-sdk-js.git"
   },
   "bugs": {
-    "url": "https://github.com/teracrafts/huefy-sdk/issues"
+    "url": "https://github.com/teracrafts/huefy-sdk-js/issues"
   },
   "engines": {
     "node": ">=16.0.0"
