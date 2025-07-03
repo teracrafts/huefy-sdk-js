@@ -105,7 +105,7 @@ import {
   HuefyError, 
   TemplateNotFoundError, 
   RateLimitError 
-} from '@huefy-dev/sdk';
+} from '@teracrafts/huefy';
 
 try {
   await huefy.sendEmail('template-key', data, 'user@example.com');
@@ -168,7 +168,7 @@ See the [full type definitions](./src/types.ts) for comprehensive TypeScript sup
 
 ## Examples
 
-Check out the [examples directory](../../examples/javascript) for complete working examples.
+Check out the [examples directory](./examples) for complete working examples.
 
 ## Development
 
