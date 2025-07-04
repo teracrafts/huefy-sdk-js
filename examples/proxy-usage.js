@@ -6,7 +6,7 @@
  * all API communication while the SDK focuses on application logic.
  */
 
-import { HuefyClient } from '@teracrafts/huefy';
+import { HuefyClient } from '@teracrafts/huefy-sdk-js';
 
 // The SDK automatically uses the optimized proxy architecture
 // No additional configuration needed for standard usage

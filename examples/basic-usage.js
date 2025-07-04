@@ -1,4 +1,4 @@
-const { HuefyClient, EmailProvider } = require('@teracrafts/huefy');
+const { HuefyClient, EmailProvider } = require('@teracrafts/huefy-sdk-js');
 
 /**
  * Basic usage example for the Huefy JavaScript SDK.

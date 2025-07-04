@@ -79,15 +79,15 @@ export function createClient(config: import('./types.js').HuefyConfig): HuefyCli
 /**
  * Package version
  */
-export const VERSION = '1.0.0-beta.9';
+export const VERSION = '2.0.0';
 
 /**
  * Package information
  */
 export const SDK_INFO = {
-  name: '@teracrafts/huefy',
+  name: '@teracrafts/huefy-sdk-js',
   version: VERSION,
   language: 'JavaScript/TypeScript',
-  repository: 'https://github.com/teracrafts/huefy-sdk',
+  repository: 'https://github.com/teracrafts/huefy-sdk-js',
   documentation: 'https://docs.huefy.com/sdk/javascript',
 } as const;
