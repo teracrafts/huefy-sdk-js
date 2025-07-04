@@ -14,7 +14,9 @@ export type EmailProvider = 'ses' | 'sendgrid' | 'mailgun' | 'mailchimp';
 export interface HuefyConfig {
   /** Your Huefy API key */
   apiKey: string;
-  /** Base URL for the API (optional) */
+  /** Custom proxy URL for enterprise deployments */
+  proxyUrl?: string;
+  /** Base URL for API calls (usually not needed) */
   baseUrl?: string;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;

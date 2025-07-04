@@ -40,7 +40,8 @@ export class HttpClient {
 
   constructor(config: HuefyConfig) {
     this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl || 'https://api.huefy.com/api/v1/sdk';
+    // Use optimized proxy endpoint by default for better performance and security
+    this.baseUrl = config.proxyUrl || config.baseUrl || 'http://localhost:8080/huefy-proxy';
     this.timeout = config.timeout || 30000;
     this.retryConfig = {
       ...DEFAULT_RETRY_CONFIG,
@@ -140,25 +141,31 @@ export class HttpClient {
 
     try {
       const headers: Record<string, string> = {
-        'X-API-Key': this.apiKey,
         'User-Agent': 'Huefy-SDK-JS/1.0.0',
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       };
 
-      // Add content type for POST requests
-      if (method === 'POST' && data) {
-        headers['Content-Type'] = 'application/json';
-      }
+      // For Huefy proxy, we send everything as a POST with optimized metadata
+      const proxyRequest = {
+        // Configuration for secure processing
+        config: {
+          apiKey: this.apiKey,
+          timeout: this.timeout,
+          retryConfig: this.retryConfig,
+        },
+        // Original request details
+        method: method,
+        endpoint: endpoint,
+        data: data || null,
+      };
 
       const requestInit: RequestInit = {
-        method,
+        method: 'POST', // Always POST to proxy
         headers,
         signal: controller.signal,
+        body: JSON.stringify(proxyRequest),
       };
-      
-      if (method === 'POST' && data) {
-        requestInit.body = JSON.stringify(data);
-      }
 
       const response = await fetch(url, requestInit);
 

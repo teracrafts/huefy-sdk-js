@@ -41,7 +41,6 @@ console.log('Email sent:', result.messageId);
 ```typescript
 const huefy = new HuefyClient({
   apiKey: 'your-api-key',
-  baseUrl: 'https://api.huefy.com/api/v1/sdk', // Optional
   timeout: 30000, // Optional, default 30 seconds
   retryAttempts: 3, // Optional, default 3
   retryDelay: 1000, // Optional, default 1 second

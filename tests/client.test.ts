@@ -29,7 +29,7 @@ describe('HuefyClient', () => {
       const minimalClient = new HuefyClient({ apiKey: 'test-key' });
       const config = minimalClient.getConfig();
       
-      expect(config.baseUrl).toBe('https://api.huefy.com/api/v1/sdk');
+      expect(config.baseUrl).toBe('https://api.huefy.dev/api/v1/sdk');
       expect(config.timeout).toBe(30000);
     });
 

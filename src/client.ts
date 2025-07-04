@@ -37,7 +37,6 @@ export class HuefyClient {
    * // With custom configuration
    * const huefy = new HuefyClient({
    *   apiKey: 'your-api-key',
-   *   baseUrl: 'https://api.huefy.com/api/v1/sdk',
    *   timeout: 30000,
    *   retryAttempts: 3
    * });

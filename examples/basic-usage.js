@@ -21,7 +21,7 @@ async function main() {
         
         const client = new HuefyClient({
             apiKey: apiKey,
-            baseUrl: 'https://api.huefy.com',
+            baseUrl: 'https://api.huefy.dev',
             timeout: 30000
         });
 
@@ -117,7 +117,7 @@ async function main() {
         
         const customClient = new HuefyClient({
             apiKey: apiKey,
-            baseUrl: 'https://api.huefy.com',
+            baseUrl: 'https://api.huefy.dev',
             timeout: 45000,
             retryOptions: {
                 maxRetries: 5,

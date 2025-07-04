@@ -109,7 +109,7 @@ async function main(): Promise<void> {
     // Type-safe configuration
     const config: HuefyConfig = {
         apiKey: process.env.HUEFY_API_KEY || 'your-api-key',
-        baseUrl: 'https://api.huefy.com',
+        baseUrl: 'https://api.huefy.dev',
         timeout: 30000,
         retryOptions: {
             maxRetries: 3,
