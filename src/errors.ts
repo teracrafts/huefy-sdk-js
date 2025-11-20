@@ -10,9 +10,10 @@ import type { ErrorResponse, ErrorCode } from './types.js';
  */
 export class HuefyError extends Error {
   public readonly code: string;
-  public readonly statusCode?: number;
+  public readonly statusCode?: number | undefined;
   public readonly details?: any;
   public readonly isHuefyError = true;
+  public readonly success = false as const;
 
   constructor(
     message: string,
@@ -52,6 +53,7 @@ export class HuefyError extends Error {
       code: this.code,
       statusCode: this.statusCode,
       details: this.details,
+      success: this.success,
     };
   }
 }

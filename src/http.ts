@@ -156,7 +156,7 @@ export class HttpClient {
         },
         // Original request details
         method: method,
-        endpoint: endpoint,
+        endpoint: url,
         data: data || null,
       };
 

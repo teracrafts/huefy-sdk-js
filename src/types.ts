@@ -9,14 +9,17 @@
 export type EmailProvider = 'ses' | 'sendgrid' | 'mailgun' | 'mailchimp';
 
 /**
+ * Transport mode for the SDK
+ */
+export type TransportMode = 'kernel' | 'http';
+
+/**
  * Configuration for the Huefy client
  */
 export interface HuefyConfig {
   /** Your Huefy API key */
   apiKey: string;
-  /** Custom proxy URL for enterprise deployments */
-  proxyUrl?: string;
-  /** Base URL for API calls (usually not needed) */
+  /** Custom gRPC endpoint (default: api.huefy.dev:50051 for production, localhost:50051 for development) */
   baseUrl?: string;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
@@ -24,6 +27,8 @@ export interface HuefyConfig {
   retryAttempts?: number;
   /** Delay between retries in milliseconds (default: 1000) */
   retryDelay?: number;
+  /** Transport mode: 'kernel' (default) or 'http' for direct API calls */
+  transport?: TransportMode;
 }
 
 /**
@@ -142,7 +147,7 @@ export interface HuefyError {
   /** Error code */
   code: string;
   /** HTTP status code */
-  statusCode?: number;
+  statusCode?: number | undefined;
   /** Additional error details */
   details?: any;
   /** Whether the operation was successful */
@@ -185,11 +190,11 @@ export interface HttpResponse<T = any> {
  */
 export interface HuefyEventCallbacks {
   /** Called when an email send attempt starts */
-  onSendStart?: (request: SendEmailRequest) => void;
+  onSendStart?: ((request: SendEmailRequest) => void) | undefined;
   /** Called when an email is sent successfully */
-  onSendSuccess?: (response: SendEmailResponse) => void;
+  onSendSuccess?: ((response: SendEmailResponse) => void) | undefined;
   /** Called when an email send fails */
-  onSendError?: (error: HuefyError) => void;
+  onSendError?: ((error: HuefyError) => void) | undefined;
   /** Called before a retry attempt */
-  onRetry?: (attempt: number, error: HuefyError) => void;
+  onRetry?: ((attempt: number, error: HuefyError) => void) | undefined;
 }

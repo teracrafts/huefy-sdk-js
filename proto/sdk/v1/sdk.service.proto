@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package huefy.sdk.v1;
+
+option go_package = "github.com/teracrafts/huefy-sdk/core/kernel/pb/sdk/v1";
+
+import "google/protobuf/struct.proto";
+import "email.proto";
+import "common.proto";
+import "health.proto";
+
+// SDKService provides the main gRPC interface for SDK clients
+service SDKService {
+  // Email operations
+  
+  // SendEmail sends a single templated email
+  rpc SendEmail(SendEmailRequest) returns (SendEmailResponse);
+  
+  // SendBulkEmail sends multiple emails in a single request
+  rpc SendBulkEmail(SendBulkEmailRequest) returns (SendBulkEmailResponse);
+  
+  // Streaming operations
+  
+  // SendBulkEmailStream sends bulk emails and streams status updates
+  rpc SendBulkEmailStream(SendBulkEmailRequest) returns (stream EmailStatusUpdate);
+  
+  // SendEmailStream allows bidirectional streaming of email requests and responses
+  rpc SendEmailStream(stream SendEmailRequest) returns (stream SendEmailResponse);
+  
+  // Health and validation
+  
+  // HealthCheck returns the service health status
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  
+  // TestAPIKey validates an API key and returns metadata
+  rpc TestAPIKey(TestAPIKeyRequest) returns (TestAPIKeyResponse);
+}

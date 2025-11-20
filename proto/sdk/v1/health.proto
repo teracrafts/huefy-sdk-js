@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package huefy.sdk.v1;
+
+option go_package = "github.com/teracrafts/huefy-sdk/core/kernel/pb/sdk/v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// HealthCheckRequest allows customizing the health check response
+message HealthCheckRequest {
+  // Include detailed dependency health status
+  bool include_dependencies = 1;
+  
+  // Include server metrics
+  bool include_metrics = 2;
+  
+  // Include version information
+  bool include_version = 3;
+}
+
+// HealthCheckResponse provides comprehensive health status
+message HealthCheckResponse {
+  // Overall health status (healthy, degraded, unhealthy)
+  string status = 1;
+  
+  // Current server timestamp
+  google.protobuf.Timestamp timestamp = 2;
+  
+  // API version
+  string version = 3;
+  
+  // Health status of dependencies
+  map<string, ServiceHealth> dependencies = 4;
+  
+  // Server metrics
+  optional ServerMetrics metrics = 5;
+  
+  // Additional health metadata
+  map<string, string> metadata = 6;
+}
+
+// ServiceHealth represents the health of a specific service/dependency
+message ServiceHealth {
+  // Health status (healthy, degraded, unhealthy)
+  string status = 1;
+  
+  // Response time in milliseconds
+  int64 latency_ms = 2;
+  
+  // Human-readable status message
+  string message = 3;
+  
+  // Last successful check timestamp
+  google.protobuf.Timestamp last_success = 4;
+  
+  // Number of consecutive failures
+  int32 failure_count = 5;
+  
+  // Additional service-specific details
+  map<string, string> details = 6;
+}
+
+// ServerMetrics provides runtime metrics about the gRPC server
+message ServerMetrics {
+  // Number of active connections
+  int64 active_connections = 1;
+  
+  // Current requests per second
+  double requests_per_second = 2;
+  
+  // Average request latency in milliseconds
+  double average_latency_ms = 3;
+  
+  // Error rate (percentage)
+  double error_rate = 4;
+  
+  // Server uptime
+  google.protobuf.Duration uptime = 5;
+  
+  // Memory usage in bytes
+  int64 memory_usage_bytes = 6;
+  
+  // CPU usage percentage
+  double cpu_usage_percent = 7;
+  
+  // Number of goroutines (Go-specific)
+  int64 goroutines = 8;
+  
+  // Circuit breaker states
+  map<string, CircuitBreakerState> circuit_breakers = 9;
+  
+  // Rate limiter states
+  map<string, RateLimiterState> rate_limiters = 10;
+}
+
+// CircuitBreakerState represents the state of a circuit breaker
+message CircuitBreakerState {
+  // Current state (closed, open, half-open)
+  string state = 1;
+  
+  // Number of failures
+  int64 failure_count = 2;
+  
+  // Success count (in half-open state)
+  int64 success_count = 3;
+  
+  // When the circuit breaker will attempt recovery
+  google.protobuf.Timestamp next_attempt = 4;
+  
+  // Last state change timestamp
+  google.protobuf.Timestamp last_state_change = 5;
+}
+
+// RateLimiterState represents the state of a rate limiter
+message RateLimiterState {
+  // Current tokens available
+  int64 available_tokens = 1;
+  
+  // Maximum tokens (bucket size)
+  int64 max_tokens = 2;
+  
+  // Refill rate (tokens per second)
+  double refill_rate = 3;
+  
+  // Next refill timestamp
+  google.protobuf.Timestamp next_refill = 4;
+  
+  // Number of rejected requests
+  int64 rejected_count = 5;
+}

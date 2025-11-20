@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package huefy.sdk.v1;
+
+option go_package = "github.com/teracrafts/huefy-sdk/core/kernel/pb/sdk/v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// Error represents a detailed error response
+message Error {
+  // Error code matching SDK error codes
+  string code = 1;
+  
+  // Human-readable error message
+  string message = 2;
+  
+  // Detailed error information
+  string detail = 3;
+  
+  // Correlation ID for tracking
+  string correlation_id = 4;
+  
+  // When the error occurred
+  google.protobuf.Timestamp timestamp = 5;
+  
+  // Additional error metadata
+  map<string, string> metadata = 6;
+  
+  // Retry information if applicable
+  optional RetryInfo retry_info = 7;
+}
+
+// ErrorCode defines standard error codes
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  
+  // Client errors (4xx equivalent)
+  ERROR_CODE_INVALID_REQUEST = 1;      // Invalid request format or parameters
+  ERROR_CODE_INVALID_API_KEY = 2;      // API key is invalid or missing
+  ERROR_CODE_PERMISSION_DENIED = 3;    // API key lacks required permissions
+  ERROR_CODE_NOT_FOUND = 4;            // Resource not found
+  ERROR_CODE_ALREADY_EXISTS = 5;       // Resource already exists
+  ERROR_CODE_RATE_LIMITED = 6;         // Rate limit exceeded
+  ERROR_CODE_QUOTA_EXCEEDED = 7;       // Usage quota exceeded
+  ERROR_CODE_INVALID_TEMPLATE = 8;     // Template validation failed
+  ERROR_CODE_INVALID_RECIPIENT = 9;    // Invalid recipient email
+  
+  // Server errors (5xx equivalent)
+  ERROR_CODE_INTERNAL_ERROR = 10;      // Internal server error
+  ERROR_CODE_UNAVAILABLE = 11;         // Service temporarily unavailable
+  ERROR_CODE_TIMEOUT = 12;             // Request timeout
+  ERROR_CODE_PROVIDER_ERROR = 13;      // Email provider error
+  ERROR_CODE_TEMPLATE_NOT_FOUND = 14;  // Template does not exist
+  ERROR_CODE_CIRCUIT_BREAKER_OPEN = 15; // Circuit breaker is open
+  
+  // Business logic errors
+  ERROR_CODE_SUBSCRIPTION_REQUIRED = 16; // Feature requires subscription
+  ERROR_CODE_DOMAIN_NOT_VERIFIED = 17;   // Sender domain not verified
+  ERROR_CODE_BOUNCE_SUPPRESSED = 18;     // Recipient is bounce suppressed
+}
+
+// RetryInfo provides information about retrying failed requests
+message RetryInfo {
+  // Whether the request can be retried
+  bool retryable = 1;
+  
+  // Suggested retry delay
+  google.protobuf.Duration retry_delay = 2;
+  
+  // Maximum number of retry attempts
+  int32 max_attempts = 3;
+  
+  // Current attempt number
+  int32 attempt_number = 4;
+}
+
+// ValidationError provides details about request validation failures
+message ValidationError {
+  // Field that failed validation
+  string field = 1;
+  
+  // Validation rule that failed
+  string rule = 2;
+  
+  // Human-readable error message
+  string message = 3;
+  
+  // Expected value or format
+  string expected = 4;
+  
+  // Actual value provided
+  string actual = 5;
+}
+
+// ErrorDetails can contain additional structured error information
+message ErrorDetails {
+  // List of validation errors
+  repeated ValidationError validation_errors = 1;
+  
+  // Provider-specific error code
+  string provider_error_code = 2;
+  
+  // Provider-specific error message
+  string provider_error_message = 3;
+  
+  // Stack trace (debug mode only)
+  string stack_trace = 4;
+  
+  // Request ID for support
+  string request_id = 5;
+}

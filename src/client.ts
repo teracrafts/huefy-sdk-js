@@ -12,6 +12,7 @@ import type {
   HealthResponse,
   HuefyEventCallbacks,
 } from './types.js';
+import { KernelClient } from './kernel-client.js';
 import { HttpClient } from './http.js';
 import { HuefyError, ValidationError } from './errors.js';
 
@@ -19,32 +20,47 @@ import { HuefyError, ValidationError } from './errors.js';
  * Main Huefy SDK client for sending emails
  */
 export class HuefyClient {
-  private readonly http: HttpClient;
-  private readonly callbacks?: HuefyEventCallbacks;
+  private readonly kernel: KernelClient | null = null;
+  private readonly http: HttpClient | null = null;
+  private readonly transport: 'kernel' | 'http';
+  private readonly callbacks?: HuefyEventCallbacks | undefined;
 
   /**
    * Create a new Huefy client
-   * 
+   *
    * @param config - Configuration options
    * @param callbacks - Optional event callbacks for monitoring
-   * 
+   *
    * @example
    * ```typescript
    * const huefy = new HuefyClient({
    *   apiKey: 'your-api-key'
    * });
-   * 
+   *
    * // With custom configuration
    * const huefy = new HuefyClient({
    *   apiKey: 'your-api-key',
    *   timeout: 30000,
    *   retryAttempts: 3
    * });
+   *
+   * // With HTTP transport
+   * const huefy = new HuefyClient({
+   *   apiKey: 'your-api-key',
+   *   transport: 'http'
+   * });
    * ```
    */
   constructor(config: HuefyConfig, callbacks?: HuefyEventCallbacks) {
-    this.http = new HttpClient(config);
+    this.transport = config.transport || 'kernel';
     this.callbacks = callbacks;
+
+    // Create appropriate client based on transport
+    if (this.transport === 'http') {
+      this.http = new HttpClient(config);
+    } else {
+      this.kernel = new KernelClient(config);
+    }
   }
 
   /**
@@ -94,13 +110,21 @@ export class HuefyClient {
       // Trigger onSendStart callback
       this.callbacks?.onSendStart?.(request);
 
-      // Make the API request
-      const response = await this.http.post<SendEmailResponse>('/emails/send', request);
+      // Make request based on transport
+      let response: SendEmailResponse;
+      if (this.transport === 'http' && this.http) {
+        const httpResponse = await this.http.post<SendEmailResponse>('/emails/send', request);
+        response = httpResponse.data;
+      } else if (this.kernel) {
+        response = await this.kernel.sendEmail(request);
+      } else {
+        throw new HuefyError('No transport client available', 'INVALID_CONFIG');
+      }
 
       // Trigger onSendSuccess callback
-      this.callbacks?.onSendSuccess?.(response.data);
+      this.callbacks?.onSendSuccess?.(response);
 
-      return response.data;
+      return response;
     } catch (error) {
       // Convert to HuefyError if needed and trigger callback
       const huefyError = error instanceof HuefyError ? error : new HuefyError(
@@ -157,37 +181,66 @@ export class HuefyClient {
       throw new ValidationError('Maximum 100 emails allowed per bulk request');
     }
 
-    // Process emails concurrently with a reasonable limit
-    const results = await Promise.allSettled(
-      emails.map(async (email) => {
-        try {
-          const result = await this.sendEmail(
-            email.templateKey,
-            email.data,
-            email.recipient,
-            email.options,
-          );
-          return {
-            email: email.recipient,
-            success: true as const,
-            result,
-          };
-        } catch (error) {
-          return {
-            email: email.recipient,
-            success: false as const,
-            error: error instanceof HuefyError ? error : new HuefyError(
-              error instanceof Error ? error.message : String(error),
-              'UNEXPECTED_ERROR',
-            ),
-          };
-        }
-      }),
-    );
+    // Convert to SendEmailRequest format for gRPC
+    const sendEmailRequests: SendEmailRequest[] = emails.map((email) => ({
+      templateKey: email.templateKey,
+      data: email.data,
+      recipient: email.recipient,
+      ...(email.options?.provider && { providerType: email.options.provider }),
+    }));
 
-    return results.map((result) =>
-      result.status === 'fulfilled' ? result.value : result.reason,
-    );
+    try {
+      // Use native bulk sending for better performance
+      let bulkResponse: any;
+      if (this.transport === 'http' && this.http) {
+        const httpResponse = await this.http.post('/emails/bulk', { emails: sendEmailRequests });
+        bulkResponse = httpResponse.data;
+      } else if (this.kernel) {
+        bulkResponse = await this.kernel.sendBulkEmails(sendEmailRequests);
+      } else {
+        throw new HuefyError('No transport client available', 'INVALID_CONFIG');
+      }
+
+      // Convert response to SDK format
+      return bulkResponse.results?.map((result: any, index: number) => ({
+        email: emails[index]?.recipient ?? '',
+        success: result.success,
+        result: result.response,
+        error: result.error,
+      })) || [];
+    } catch (error) {
+      // If bulk request fails, fall back to individual requests
+      const results = await Promise.allSettled(
+        emails.map(async (email) => {
+          try {
+            const result = await this.sendEmail(
+              email.templateKey,
+              email.data,
+              email.recipient,
+              email.options,
+            );
+            return {
+              email: email.recipient,
+              success: true as const,
+              result,
+            };
+          } catch (error) {
+            return {
+              email: email.recipient,
+              success: false as const,
+              error: error instanceof HuefyError ? error : new HuefyError(
+                error instanceof Error ? error.message : String(error),
+                'UNEXPECTED_ERROR',
+              ),
+            };
+          }
+        }),
+      );
+
+      return results.map((result) =>
+        result.status === 'fulfilled' ? result.value : result.reason,
+      );
+    }
   }
 
   /**
@@ -202,8 +255,13 @@ export class HuefyClient {
    * ```
    */
   async healthCheck(): Promise<HealthResponse> {
-    const response = await this.http.get<HealthResponse>('/health');
-    return response.data;
+    if (this.transport === 'http' && this.http) {
+      const response = await this.http.get<HealthResponse>('/health');
+      return response.data;
+    } else if (this.kernel) {
+      return await this.kernel.healthCheck();
+    }
+    throw new HuefyError('No transport client available', 'INVALID_CONFIG');
   }
 
   /**
@@ -224,7 +282,7 @@ export class HuefyClient {
   async validateTemplate(templateKey: string, testData: EmailData): Promise<boolean> {
     try {
       // Use a test recipient that won't actually send
-      await this.sendEmail(templateKey, testData, 'test@huefy.com');
+      await this.sendEmail(templateKey, testData, 'test@huefy.dev');
       return true;
     } catch (error) {
       if (error instanceof HuefyError) {
@@ -241,15 +299,36 @@ export class HuefyClient {
    * @returns Client configuration details
    */
   getConfig(): {
-    baseUrl: string;
+    transport: string;
+    endpoint: string;
     timeout: number;
     retryConfig: any;
   } {
-    return {
-      baseUrl: this.http.getBaseUrl(),
-      timeout: this.http.getTimeout(),
-      retryConfig: this.http.getRetryConfig(),
-    };
+    if (this.transport === 'http' && this.http) {
+      return {
+        transport: this.transport,
+        endpoint: this.http.getBaseUrl(),
+        timeout: this.http.getTimeout(),
+        retryConfig: this.http.getRetryConfig(),
+      };
+    } else if (this.kernel) {
+      return {
+        transport: this.transport,
+        endpoint: this.kernel.getEndpoint(),
+        timeout: this.kernel.getTimeout(),
+        retryConfig: this.kernel.getRetryConfig(),
+      };
+    }
+    throw new HuefyError('No transport client available', 'INVALID_CONFIG');
+  }
+
+  /**
+   * Close the client connection
+   */
+  close(): void {
+    if (this.kernel) {
+      this.kernel.close();
+    }
   }
 
   /**

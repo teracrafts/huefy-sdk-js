@@ -7,8 +7,8 @@
 // Export main client
 export { HuefyClient } from './client.js';
 
-// Export HTTP client (for advanced use cases)
-export { HttpClient } from './http.js';
+// Export kernel client (for advanced use cases)
+export { KernelClient } from './kernel-client.js';
 
 // Export all types
 export type {
@@ -89,5 +89,5 @@ export const SDK_INFO = {
   version: VERSION,
   language: 'JavaScript/TypeScript',
   repository: 'https://github.com/teracrafts/huefy-sdk-js',
-  documentation: 'https://docs.huefy.com/sdk/javascript',
+  documentation: 'https://docs.huefy.dev/sdk/javascript',
 } as const;

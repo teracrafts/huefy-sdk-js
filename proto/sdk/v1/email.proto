@@ -1,0 +1,199 @@
+syntax = "proto3";
+
+package huefy.sdk.v1;
+
+option go_package = "github.com/teracrafts/huefy-sdk/core/kernel/pb/sdk/v1";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "common.proto";
+import "errors.proto";
+
+// SendEmailRequest represents a request to send a single email
+message SendEmailRequest {
+  // Template key identifying the email template to use
+  string template_key = 1;
+  
+  // Optional template version (uses latest if not specified)
+  optional int32 template_version = 2;
+  
+  // Dynamic data to inject into the template
+  google.protobuf.Struct data = 3;
+  
+  // Email recipient information
+  EmailRecipient recipient = 4;
+  
+  // Optional custom sender email (overrides template default)
+  optional string from_email = 5;
+  
+  // Optional sender display name
+  optional string from_name = 6;
+  
+  // Optional reply-to address
+  optional string reply_to = 7;
+  
+  // Optional email provider to use (ses, sendgrid, mailgun, mailchimp)
+  optional string provider_type = 8;
+  
+  // Optional correlation ID for request tracking
+  optional string correlation_id = 9;
+  
+  // Optional metadata for tracking and analytics
+  map<string, string> metadata = 10;
+  
+  // Optional request options
+  optional RequestOptions options = 11;
+}
+
+// EmailRecipient represents an email recipient
+message EmailRecipient {
+  // Email address
+  string email = 1;
+  
+  // Recipient type (to, cc, bcc)
+  RecipientType type = 2;
+  
+  // Optional recipient-specific template data
+  google.protobuf.Struct data = 3;
+}
+
+// RecipientType defines the type of email recipient
+enum RecipientType {
+  RECIPIENT_TYPE_UNSPECIFIED = 0;
+  RECIPIENT_TYPE_TO = 1;
+  RECIPIENT_TYPE_CC = 2;
+  RECIPIENT_TYPE_BCC = 3;
+}
+
+// RequestOptions contains optional request configuration
+message RequestOptions {
+  // Request timeout duration
+  google.protobuf.Duration timeout = 1;
+  
+  // Request priority (higher number = higher priority)
+  int32 priority = 2;
+  
+  // Idempotency key to prevent duplicate sends
+  string idempotency_key = 3;
+}
+
+// SendEmailResponse represents the response from sending an email
+message SendEmailResponse {
+  // Whether the email was successfully queued/sent
+  bool success = 1;
+  
+  // Human-readable status message
+  string message = 2;
+  
+  // Unique message ID from the email provider
+  string message_id = 3;
+  
+  // Email provider used to send the message
+  string provider = 4;
+  
+  // Correlation ID (echoed from request if provided)
+  string correlation_id = 5;
+  
+  // Timestamp when the email was sent
+  google.protobuf.Timestamp sent_at = 6;
+}
+
+// SendBulkEmailRequest represents a request to send multiple emails
+message SendBulkEmailRequest {
+  // List of email requests to send
+  repeated SendEmailRequest emails = 1;
+  
+  // Optional correlation ID for the entire batch
+  optional string correlation_id = 2;
+  
+  // Optional batch processing options
+  optional BatchOptions batch_options = 3;
+}
+
+// BatchOptions configures batch processing behavior
+message BatchOptions {
+  // Continue processing on individual failures
+  bool continue_on_error = 1;
+  
+  // Maximum concurrent sends
+  int32 max_concurrent = 2;
+}
+
+// SendBulkEmailResponse represents the response from sending bulk emails
+message SendBulkEmailResponse {
+  // Results for each email in the batch
+  repeated EmailResult results = 1;
+  
+  // Correlation ID (echoed from request if provided)
+  string correlation_id = 2;
+  
+  // Summary statistics
+  BulkEmailStats stats = 3;
+}
+
+// EmailResult represents the result of a single email in a bulk operation
+message EmailResult {
+  // Whether this specific email succeeded
+  bool success = 1;
+  
+  // Response details if successful
+  optional SendEmailResponse response = 2;
+  
+  // Error details if failed
+  optional Error error = 3;
+  
+  // Index of this email in the original request
+  int32 index = 4;
+}
+
+// BulkEmailStats provides summary statistics for bulk operations
+message BulkEmailStats {
+  // Total emails in the batch
+  int32 total = 1;
+  
+  // Number of successful sends
+  int32 successful = 2;
+  
+  // Number of failed sends
+  int32 failed = 3;
+  
+  // Processing duration
+  google.protobuf.Duration duration = 4;
+}
+
+// EmailStatusUpdate represents a status update for a sent email
+message EmailStatusUpdate {
+  // Message ID being updated
+  string message_id = 1;
+  
+  // Current status of the email
+  EmailStatus status = 2;
+  
+  // Timestamp of this status update
+  google.protobuf.Timestamp updated_at = 3;
+  
+  // Optional error message if status is failed
+  optional string error_message = 4;
+  
+  // Correlation ID for tracking
+  optional string correlation_id = 5;
+  
+  // Additional status metadata
+  map<string, string> metadata = 6;
+}
+
+// EmailStatus represents the delivery status of an email
+enum EmailStatus {
+  EMAIL_STATUS_UNSPECIFIED = 0;
+  EMAIL_STATUS_QUEUED = 1;      // Email is queued for sending
+  EMAIL_STATUS_SENDING = 2;     // Email is being sent
+  EMAIL_STATUS_SENT = 3;        // Email was sent to provider
+  EMAIL_STATUS_FAILED = 4;      // Email failed to send
+  EMAIL_STATUS_BOUNCED = 5;     // Email bounced
+  EMAIL_STATUS_DELIVERED = 6;   // Email was delivered to recipient
+  EMAIL_STATUS_OPENED = 7;      // Email was opened by recipient
+  EMAIL_STATUS_CLICKED = 8;     // Link in email was clicked
+  EMAIL_STATUS_COMPLAINED = 9;  // Recipient marked as spam
+  EMAIL_STATUS_UNSUBSCRIBED = 10; // Recipient unsubscribed
+}

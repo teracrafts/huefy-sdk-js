@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package huefy.sdk.v1;
+
+option go_package = "github.com/teracrafts/huefy-sdk/core/kernel/pb/sdk/v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// TestAPIKeyRequest represents a request to validate an API key
+message TestAPIKeyRequest {
+  // API key is passed via metadata (x-api-key header), not in the request body
+}
+
+// TestAPIKeyResponse provides information about the validated API key
+message TestAPIKeyResponse {
+  // Whether the API key is valid
+  bool is_valid = 1;
+  
+  // Whether the API key is active (not revoked)
+  bool is_active = 2;
+  
+  // Masked version of the API key (first 8 characters)
+  string key_prefix = 3;
+  
+  // User information associated with the API key
+  UserInfo user = 4;
+  
+  // Project information (if API key is project-scoped)
+  optional ProjectInfo project = 5;
+  
+  // Organization information
+  optional OrganizationInfo organization = 6;
+  
+  // Permissions granted to this API key
+  map<string, bool> permissions = 7;
+  
+  // Correlation ID for tracking
+  string correlation_id = 8;
+  
+  // API key metadata
+  APIKeyMetadata metadata = 9;
+}
+
+// UserInfo contains basic user information
+message UserInfo {
+  // User ID
+  string id = 1;
+  
+  // User email
+  string email = 2;
+}
+
+// ProjectInfo contains basic project information
+message ProjectInfo {
+  // Project ID
+  string id = 1;
+  
+  // Project name
+  string name = 2;
+}
+
+// OrganizationInfo contains basic organization information
+message OrganizationInfo {
+  // Organization ID
+  string id = 1;
+  
+  // Organization name
+  string name = 2;
+}
+
+// APIKeyMetadata contains metadata about the API key
+message APIKeyMetadata {
+  // When the API key was created
+  google.protobuf.Timestamp created_at = 1;
+  
+  // When the API key was last used
+  optional google.protobuf.Timestamp last_used_at = 2;
+  
+  // Rate limit configuration
+  RateLimitInfo rate_limit = 3;
+  
+  // Usage statistics
+  UsageStats usage_stats = 4;
+}
+
+// RateLimitInfo contains rate limiting information
+message RateLimitInfo {
+  // Requests per second limit
+  int32 requests_per_second = 1;
+  
+  // Burst limit
+  int32 burst = 2;
+  
+  // Current remaining requests
+  int32 remaining = 3;
+  
+  // When the rate limit resets
+  google.protobuf.Timestamp reset_at = 4;
+}
+
+// UsageStats contains API usage statistics
+message UsageStats {
+  // Total requests made with this API key
+  int64 total_requests = 1;
+  
+  // Total emails sent
+  int64 emails_sent = 2;
+  
+  // Usage in the current billing period
+  int64 current_period_usage = 3;
+  
+  // Billing period start
+  google.protobuf.Timestamp period_start = 4;
+  
+  // Billing period end
+  google.protobuf.Timestamp period_end = 5;
+}
+
+// RequestMetadata can be included in any request for additional tracking
+message RequestMetadata {
+  // Correlation ID for distributed tracing
+  string correlation_id = 1;
+  
+  // Client-specified timeout for this request
+  google.protobuf.Duration timeout = 2;
+  
+  // Request priority (0-10, higher = more important)
+  int32 priority = 3;
+  
+  // Client information
+  ClientInfo client = 4;
+}
+
+// ClientInfo identifies the SDK client
+message ClientInfo {
+  // SDK language (go, python, js, etc.)
+  string sdk_language = 1;
+  
+  // SDK version
+  string sdk_version = 2;
+  
+  // Client application name
+  string app_name = 3;
+  
+  // Client application version
+  string app_version = 4;
+}
