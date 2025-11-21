@@ -52,13 +52,24 @@ export class HuefyClient {
    * ```
    */
   constructor(config: HuefyConfig, callbacks?: HuefyEventCallbacks) {
-    this.transport = config.transport || 'kernel';
+    // Detect browser environment - default to HTTP in browser, kernel in Node.js
+    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+    const defaultTransport = isBrowser ? 'http' : 'kernel';
+
+    this.transport = config.transport || defaultTransport;
     this.callbacks = callbacks;
 
     // Create appropriate client based on transport
     if (this.transport === 'http') {
       this.http = new HttpClient(config);
     } else {
+      // Kernel transport requires Node.js environment
+      if (isBrowser) {
+        throw new HuefyError(
+          'Kernel transport is not supported in browser environments. Use transport: "http" instead.',
+          'INVALID_CONFIG'
+        );
+      }
       this.kernel = new KernelClient(config);
     }
   }
