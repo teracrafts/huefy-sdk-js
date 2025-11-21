@@ -1,6 +1,6 @@
 {
   "name": "@teracrafts/huefy-sdk-js",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "JavaScript/TypeScript SDK for Huefy - App Mail Templates with dynamic email sending",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

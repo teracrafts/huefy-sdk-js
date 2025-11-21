@@ -102,13 +102,11 @@ export class KernelClient {
       return config.baseUrl;
     }
 
-    // Default endpoints
-    const isProduction = process.env.NODE_ENV === 'production';
-    if (isProduction) {
-      return 'api.huefy.dev:50051';
-    } else {
+    // Default: production, unless local is explicitly set to true
+    if (config.local) {
       return 'localhost:50051';
     }
+    return 'api.huefy.dev:50051';
   }
 
   /**

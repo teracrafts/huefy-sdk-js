@@ -40,8 +40,7 @@ export class HttpClient {
 
   constructor(config: HuefyConfig) {
     this.apiKey = config.apiKey;
-    // Use optimized proxy endpoint by default for better performance and security
-    this.baseUrl = config.proxyUrl || config.baseUrl || 'http://localhost:8080/huefy-proxy';
+    this.baseUrl = this.getHttpEndpoint(config);
     this.timeout = config.timeout || 30000;
     this.retryConfig = {
       ...DEFAULT_RETRY_CONFIG,
@@ -57,6 +56,22 @@ export class HttpClient {
     if (this.timeout < 0) {
       throw new HuefyError('Timeout must be a positive number', 'INVALID_CONFIG');
     }
+  }
+
+  /**
+   * Determine the HTTP endpoint based on configuration
+   */
+  private getHttpEndpoint(config: HuefyConfig): string {
+    // If a custom baseUrl is provided, use it
+    if (config.baseUrl) {
+      return config.baseUrl;
+    }
+
+    // Default: production, unless local is explicitly set to true
+    if (config.local) {
+      return 'http://localhost:8080/api/v1/sdk';
+    }
+    return 'https://api.huefy.dev/api/v1/sdk';
   }
 
   /**
@@ -141,31 +156,21 @@ export class HttpClient {
 
     try {
       const headers: Record<string, string> = {
-        'User-Agent': 'Huefy-SDK-JS/1.0.0',
+        'User-Agent': 'Huefy-SDK-JS/2.1.1',
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-      };
-
-      // For Huefy proxy, we send everything as a POST with optimized metadata
-      const proxyRequest = {
-        // Configuration for secure processing
-        config: {
-          apiKey: this.apiKey,
-          timeout: this.timeout,
-          retryConfig: this.retryConfig,
-        },
-        // Original request details
-        method: method,
-        endpoint: url,
-        data: data || null,
+        'X-API-Key': this.apiKey,
       };
 
       const requestInit: RequestInit = {
-        method: 'POST', // Always POST to proxy
+        method,
         headers,
         signal: controller.signal,
-        body: JSON.stringify(proxyRequest),
       };
+
+      if (data && method === 'POST') {
+        requestInit.body = JSON.stringify(data);
+      }
 
       const response = await fetch(url, requestInit);
 

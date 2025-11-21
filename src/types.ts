@@ -19,7 +19,7 @@ export type TransportMode = 'kernel' | 'http';
 export interface HuefyConfig {
   /** Your Huefy API key */
   apiKey: string;
-  /** Custom gRPC endpoint (default: api.huefy.dev:50051 for production, localhost:50051 for development) */
+  /** Custom endpoint (overrides local setting) */
   baseUrl?: string;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
@@ -27,8 +27,10 @@ export interface HuefyConfig {
   retryAttempts?: number;
   /** Delay between retries in milliseconds (default: 1000) */
   retryDelay?: number;
-  /** Transport mode: 'kernel' (default) or 'http' for direct API calls */
+  /** Transport mode: 'kernel' (default for Node.js) or 'http' (default for browser) */
   transport?: TransportMode;
+  /** Use local development endpoints (default: false, uses production) */
+  local?: boolean;
 }
 
 /**
