@@ -8,6 +8,8 @@ import type { Logger } from '../utils/logger';
 import { NoopLogger } from '../utils/logger';
 import { SDK_VERSION } from '../utils/version';
 import { getSDKUserAgent, isNode } from '../utils/platform';
+import { createRequestSignature } from '../utils/security';
+import { sanitizeErrorMessage } from '../errors/error-sanitizer';
 
 // ---------------------------------------------------------------------------
 // URL resolution
@@ -132,13 +134,25 @@ export class HttpClient {
     const method = options.method ?? 'GET';
     const requestTimeout = options.timeout ?? this.timeout;
 
+    // -- Serialise body (moved before headers so Content-Type is conditional) -
+    const serialisedBody =
+      options.body != null
+        ? typeof options.body === 'string'
+          ? options.body
+          : JSON.stringify(options.body)
+        : undefined;
+
     // -- Build headers -------------------------------------------------------
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
       'X-SDK-Version': SDK_VERSION,
       ...options.headers,
     };
+
+    // Only set Content-Type when there is a request body.
+    if (serialisedBody !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     // User-Agent is only safe to set in Node.js (browsers disallow it).
     if (isNode()) {
@@ -151,28 +165,14 @@ export class HttpClient {
 
     // -- Request signing (optional) ------------------------------------------
     if (this.enableRequestSigning && !options.skipAuth) {
-      const timestamp = Math.floor(Date.now() / 1000).toString();
-      headers['X-Timestamp'] = timestamp;
-      headers['X-Key-Id'] = this.apiKey.slice(0, 8);
-
-      // HMAC signature placeholder — the real implementation should import a
-      // security/signing utility.  We include the headers so downstream code
-      // and tests can assert their presence.
-      headers['X-Signature'] = await this.computeSignature(
-        method,
-        path,
-        timestamp,
-        options.body,
+      const sig = await createRequestSignature(
+        serialisedBody ?? '',
+        this.apiKey,
       );
+      headers['X-Timestamp'] = sig.timestamp.toString();
+      headers['X-Key-Id'] = sig.keyId;
+      headers['X-Signature'] = sig.signature;
     }
-
-    // -- Serialise body ------------------------------------------------------
-    const serialisedBody =
-      options.body != null
-        ? typeof options.body === 'string'
-          ? options.body
-          : JSON.stringify(options.body)
-        : undefined;
 
     // -- Execute with circuit breaker (and optional retry) --------------------
     const execute = async (overrideHeaders?: Record<string, string>) => {
@@ -201,8 +201,26 @@ export class HttpClient {
           });
 
           if (!response.ok) {
+            const retryAfterHeader = response.headers.get('Retry-After');
             const body = await this.safeParseBody(response);
-            throw HuefyError.createErrorFromResponse(response.status, body);
+            // Sanitize response body messages before creating errors
+            const sanitizedBody = typeof body === 'string'
+              ? sanitizeErrorMessage(body)
+              : {
+                  ...body,
+                  ...(typeof body.message === 'string'
+                    ? { message: sanitizeErrorMessage(body.message) }
+                    : {}),
+                  ...(typeof body.error === 'string'
+                    ? { error: sanitizeErrorMessage(body.error) }
+                    : {}),
+                };
+            const apiError = HuefyError.createErrorFromResponse(
+              response.status,
+              sanitizedBody,
+              retryAfterHeader,
+            );
+            throw apiError;
           }
 
           // 204 No Content — return empty object as T.
@@ -225,14 +243,13 @@ export class HttpClient {
             error.name === 'AbortError'
           ) {
             throw HuefyError.TimeoutError(
-              `Request to ${method} ${path} timed out after ${requestTimeout}ms`,
+              sanitizeErrorMessage(`Request to ${method} ${path} timed out after ${requestTimeout}ms`),
             );
           }
 
-          throw HuefyError.NetworkError(
-            `Network error during ${method} ${path}`,
-            error instanceof Error ? error : undefined,
-          );
+          const networkMsg = sanitizeErrorMessage(`Network error during ${method} ${path}`);
+          const cause = error instanceof Error ? error : undefined;
+          throw HuefyError.NetworkError(networkMsg, cause);
         } finally {
           clearTimeout(timer);
           externalSignal?.removeEventListener('abort', onExternalAbort);
@@ -247,7 +264,7 @@ export class HttpClient {
       if (options.skipRetry) {
         return execute(overrideHeaders);
       }
-      return withRetry(() => execute(overrideHeaders), this.retryConfig, this.logger);
+      return withRetry(() => execute(overrideHeaders), this.retryConfig, this.logger, options.signal);
     };
 
     try {
@@ -262,7 +279,23 @@ export class HttpClient {
         this.logger.warn(
           'Primary API key returned 401. Retrying with secondary key.',
         );
-        return executeWithRetry({ 'X-API-Key': this.secondaryApiKey });
+
+        const fallbackHeaders: Record<string, string> = {
+          'X-API-Key': this.secondaryApiKey,
+        };
+
+        // Recompute request signature with the secondary key.
+        if (this.enableRequestSigning) {
+          const sig = await createRequestSignature(
+            serialisedBody ?? '',
+            this.secondaryApiKey,
+          );
+          fallbackHeaders['X-Timestamp'] = sig.timestamp.toString();
+          fallbackHeaders['X-Key-Id'] = sig.keyId;
+          fallbackHeaders['X-Signature'] = sig.signature;
+        }
+
+        return executeWithRetry(fallbackHeaders);
       }
 
       throw error;
@@ -287,78 +320,27 @@ export class HttpClient {
 
   /**
    * Safely parses the response body as JSON, falling back to raw text.
+   *
+   * Reads the body stream exactly once via `response.text()` and then
+   * attempts `JSON.parse`, avoiding the double-consumption bug that
+   * occurs when calling `.json()` followed by `.text()` on the same
+   * response.
    */
   private async safeParseBody(
     response: Response,
   ): Promise<Record<string, unknown> | string> {
+    let text: string;
     try {
-      return (await response.json()) as Record<string, unknown>;
+      text = await response.text();
     } catch {
-      try {
-        return await response.text();
-      } catch {
-        return `Unparseable response (status ${response.status})`;
-      }
+      return `Unparseable response (status ${response.status})`;
+    }
+
+    try {
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return text;
     }
   }
 
-  /**
-   * Computes an HMAC-SHA256 request signature.
-   *
-   * This is a placeholder implementation.  A real SDK should import a
-   * dedicated signing utility from a security module that handles key
-   * derivation and canonical request formatting.
-   */
-  private async computeSignature(
-    method: string,
-    path: string,
-    timestamp: string,
-    body?: string | Record<string, unknown>,
-  ): Promise<string> {
-    const payload = [method, path, timestamp, body ? JSON.stringify(body) : ''].join('\n');
-
-    if (isNode()) {
-      // Use Node.js crypto module.
-      try {
-        const crypto = await import('crypto');
-        return crypto
-          .createHmac('sha256', this.apiKey)
-          .update(payload)
-          .digest('hex');
-      } catch {
-        return '';
-      }
-    }
-
-    // Browser: use SubtleCrypto when available.
-    if (typeof globalThis.crypto?.subtle !== 'undefined') {
-      try {
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(this.apiKey);
-        const messageData = encoder.encode(payload);
-
-        const cryptoKey = await globalThis.crypto.subtle.importKey(
-          'raw',
-          keyData,
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign'],
-        );
-
-        const signature = await globalThis.crypto.subtle.sign(
-          'HMAC',
-          cryptoKey,
-          messageData,
-        );
-
-        return Array.from(new Uint8Array(signature))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
-      } catch {
-        return '';
-      }
-    }
-
-    return '';
-  }
 }
