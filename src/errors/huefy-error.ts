@@ -1,4 +1,5 @@
 import { ErrorCode, getNumericCode, isRecoverableCode } from './error-codes';
+import { parseRetryAfter } from '../http/retry';
 
 export interface HuefyErrorOptions {
   statusCode?: number;
@@ -105,12 +106,14 @@ export class HuefyError extends Error {
   /**
    * Maps an HTTP response status and body to the most appropriate error.
    *
-   * @param status - HTTP status code.
-   * @param body   - Parsed response body (or raw string).
+   * @param status           - HTTP status code.
+   * @param body             - Parsed response body (or raw string).
+   * @param retryAfterHeader - Raw value of the `Retry-After` response header.
    */
   static createErrorFromResponse(
     status: number,
     body: Record<string, unknown> | string,
+    retryAfterHeader?: string | null,
   ): HuefyError {
     const parsed: Record<string, unknown> = typeof body === 'string' ? { raw: body } : body;
     const serverMessage =
@@ -118,6 +121,12 @@ export class HuefyError extends Error {
       (typeof parsed.error === 'string' ? parsed.error : undefined) ??
       `Request failed with status ${status}`;
     const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : undefined;
+
+    // Parse the Retry-After header (seconds) — used for 429 and optionally 503.
+    const retryAfterMs = parseRetryAfter(retryAfterHeader ?? null);
+    // Convert milliseconds to seconds for the error's retryAfter field.
+    const retryAfterSec =
+      retryAfterMs != null ? Math.ceil(retryAfterMs / 1000) : undefined;
 
     // 401 Unauthorized
     if (status === 401) {
@@ -139,14 +148,15 @@ export class HuefyError extends Error {
       });
     }
 
-    // 429 Too Many Requests — extract Retry-After when present
+    // 429 Too Many Requests — prefer header-based Retry-After, fall back to body
     if (status === 429) {
       const retryAfter =
-        typeof parsed.retryAfter === 'number'
+        retryAfterSec ??
+        (typeof parsed.retryAfter === 'number'
           ? parsed.retryAfter
           : typeof parsed.retry_after === 'number'
             ? parsed.retry_after
-            : undefined;
+            : undefined);
 
       return new HuefyError(serverMessage, ErrorCode.NETWORK_RETRY_LIMIT, {
         statusCode: status,
@@ -167,6 +177,7 @@ export class HuefyError extends Error {
       return new HuefyError(serverMessage, code, {
         statusCode: status,
         recoverable: true,
+        retryAfter: retryAfterSec,
         requestId,
         details: parsed,
       });
