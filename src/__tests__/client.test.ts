@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { HuefyClient } from '../client';
-import { HuefyError } from '../errors/huefy-error';
-import { ErrorCode } from '../errors/error-codes';
 
 // Mock the HttpClient module so we can control its behavior
 vi.mock('../http/http-client', () => {
@@ -52,8 +50,8 @@ describe('HuefyClient', () => {
       try {
         new HuefyClient({ apiKey: '' });
       } catch (err) {
-        expect(err).toBeInstanceOf(HuefyError);
-        expect((err as HuefyError).code).toBe(ErrorCode.AUTH_MISSING_KEY);
+        expect(err).toBeInstanceOf(Error);
+        expect((err as Error).message).toBe('apiKey is required');
       }
     });
 
@@ -88,7 +86,7 @@ describe('HuefyClient', () => {
 
       const result = await client.healthCheck();
 
-      expect(mockRequest).toHaveBeenCalledWith('GET', '/health');
+      expect(mockRequest).toHaveBeenCalledWith('/health', { method: 'GET' });
       expect(result).toEqual({ status: 'ok', version: '1.0.0' });
     });
   });
