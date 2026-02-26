@@ -202,6 +202,9 @@ export async function generateHMACSHA256(
   return hmac.digest('hex');
 }
 
+/** Default maximum age for request signatures (5 minutes in milliseconds). */
+const DEFAULT_SIGNATURE_MAX_AGE_MS = 5 * 60 * 1000;
+
 // ---------------------------------------------------------------------------
 // Payload signing
 // ---------------------------------------------------------------------------
@@ -266,7 +269,7 @@ export async function verifyRequestSignature(
   signature: string,
   timestamp: number,
   apiKey: string,
-  maxAgeMs: number = 5 * 60 * 1000,
+  maxAgeMs: number = DEFAULT_SIGNATURE_MAX_AGE_MS,
 ): Promise<boolean> {
   // Reject if the signature is too old (or from the future).
   const age = Math.abs(Date.now() - timestamp);
