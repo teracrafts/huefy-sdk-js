@@ -15,9 +15,9 @@ describe('HttpClient', () => {
     vi.stubGlobal('fetch', mockFetch);
     mockFetch.mockReset();
 
-    client = new HttpClient({
+    client = new HttpClient(apiKey, {
       baseUrl,
-      apiKey,
+      retryConfig: { maxRetries: 0 },
     });
   });
 
@@ -33,7 +33,7 @@ describe('HttpClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     });
 
-    await client.request('GET', '/api/v1/health');
+    await client.request('/api/v1/health', { method: 'GET' });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const [url] = mockFetch.mock.calls[0];
@@ -48,7 +48,7 @@ describe('HttpClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     });
 
-    await client.request('GET', '/test');
+    await client.request('/test', { method: 'GET' });
 
     const [, options] = mockFetch.mock.calls[0];
     expect(options.headers['X-API-Key']).toBe(apiKey);
@@ -62,7 +62,8 @@ describe('HttpClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     });
 
-    await client.request('POST', '/emails/send', {
+    await client.request('/emails/send', {
+      method: 'POST',
       body: { to: 'user@example.com', subject: 'Test' },
     });
 
@@ -83,7 +84,7 @@ describe('HttpClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     });
 
-    const result = await client.request('GET', '/status');
+    const result = await client.request('/status', { method: 'GET' });
 
     expect(result).toEqual(responseData);
   });
@@ -96,10 +97,10 @@ describe('HttpClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     });
 
-    await expect(client.request('POST', '/emails/send')).rejects.toThrow(HuefyError);
+    await expect(client.request('/emails/send', { method: 'POST' })).rejects.toThrow(HuefyError);
 
     try {
-      await client.request('POST', '/emails/send');
+      await client.request('/emails/send', { method: 'POST' });
     } catch (err) {
       expect(err).toBeInstanceOf(HuefyError);
       expect((err as HuefyError).statusCode).toBe(422);
@@ -114,10 +115,10 @@ describe('HttpClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     });
 
-    await expect(client.request('GET', '/health')).rejects.toThrow(HuefyError);
+    await expect(client.request('/health', { method: 'GET' })).rejects.toThrow(HuefyError);
 
     try {
-      await client.request('GET', '/health');
+      await client.request('/health', { method: 'GET' });
     } catch (err) {
       expect(err).toBeInstanceOf(HuefyError);
       const sdkError = err as HuefyError;
@@ -129,10 +130,10 @@ describe('HttpClient', () => {
   it('throws NetworkError on fetch failure', async () => {
     mockFetch.mockRejectedValue(new TypeError('Failed to fetch'));
 
-    await expect(client.request('GET', '/health')).rejects.toThrow(HuefyError);
+    await expect(client.request('/health', { method: 'GET' })).rejects.toThrow(HuefyError);
 
     try {
-      await client.request('GET', '/health');
+      await client.request('/health', { method: 'GET' });
     } catch (err) {
       expect(err).toBeInstanceOf(HuefyError);
       expect((err as HuefyError).code).toBe(ErrorCode.NETWORK_ERROR);
@@ -140,10 +141,10 @@ describe('HttpClient', () => {
   });
 
   it('respects custom timeout', async () => {
-    const clientWithTimeout = new HttpClient({
+    const clientWithTimeout = new HttpClient(apiKey, {
       baseUrl,
-      apiKey,
       timeout: 5000,
+      retryConfig: { maxRetries: 0 },
     });
 
     mockFetch.mockResolvedValue({
@@ -153,7 +154,7 @@ describe('HttpClient', () => {
       headers: new Headers({ 'content-type': 'application/json' }),
     });
 
-    await clientWithTimeout.request('GET', '/test');
+    await clientWithTimeout.request('/test', { method: 'GET' });
 
     const [, options] = mockFetch.mock.calls[0];
     // The client should pass a signal for timeout control
