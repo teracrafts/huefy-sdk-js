@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CircuitBreaker, CircuitState } from '../http/circuit-breaker';
-import { HuefyError } from '../errors/huefy-error';
+import {
+  CircuitBreaker,
+  CircuitState,
+  CircuitOpenError,
+} from '../http/circuit-breaker';
 import { ErrorCode } from '../errors/error-codes';
 
 describe('CircuitBreaker', () => {
@@ -43,14 +46,15 @@ describe('CircuitBreaker', () => {
 
       expect(breaker.getState()).toBe(CircuitState.OPEN);
 
-      // Next call should be rejected immediately with circuit-open error
-      await expect(breaker.execute(vi.fn())).rejects.toThrow();
-
+      // Next call should be rejected immediately with CircuitOpenError
       try {
         await breaker.execute(vi.fn());
+        // Should not reach here
+        expect.unreachable('Expected CircuitOpenError to be thrown');
       } catch (err) {
-        expect(err).toBeInstanceOf(HuefyError);
-        expect((err as HuefyError).code).toBe(ErrorCode.CIRCUIT_OPEN);
+        // CircuitOpenError extends Error directly, not HuefyError
+        expect(err).toBeInstanceOf(CircuitOpenError);
+        expect((err as CircuitOpenError).code).toBe(ErrorCode.CIRCUIT_OPEN);
       }
     });
 
@@ -102,9 +106,11 @@ describe('CircuitBreaker', () => {
       expect(breaker.getState()).toBe(CircuitState.OPEN);
     });
 
-    it('transitions to HALF_OPEN after resetTimeout', async () => {
+    it('transitions to HALF_OPEN after resetTimeout when execute is called', async () => {
       const failingFn = vi.fn().mockRejectedValue(new Error('fail'));
+      const successFn = vi.fn().mockResolvedValue('ok');
 
+      // Trip the breaker
       for (let i = 0; i < 3; i++) {
         await expect(breaker.execute(failingFn)).rejects.toThrow('fail');
       }
@@ -114,7 +120,11 @@ describe('CircuitBreaker', () => {
       // Advance past the reset timeout
       vi.advanceTimersByTime(150);
 
-      expect(breaker.getState()).toBe(CircuitState.HALF_OPEN);
+      // The circuit transitions to HALF_OPEN lazily when execute() is called.
+      // A successful call during that probe transitions it to CLOSED.
+      await breaker.execute(successFn);
+
+      expect(breaker.getState()).toBe(CircuitState.CLOSED);
     });
 
     it('transitions back to CLOSED on success in HALF_OPEN', async () => {
@@ -128,12 +138,10 @@ describe('CircuitBreaker', () => {
 
       expect(breaker.getState()).toBe(CircuitState.OPEN);
 
-      // Wait for reset timeout to transition to HALF_OPEN
+      // Wait for reset timeout, then a successful call closes the circuit
       vi.advanceTimersByTime(150);
 
-      expect(breaker.getState()).toBe(CircuitState.HALF_OPEN);
-
-      // Successful call should close the circuit
+      // The execute() call triggers OPEN -> HALF_OPEN -> CLOSED on success
       await breaker.execute(successFn);
 
       expect(breaker.getState()).toBe(CircuitState.CLOSED);
@@ -149,12 +157,10 @@ describe('CircuitBreaker', () => {
 
       expect(breaker.getState()).toBe(CircuitState.OPEN);
 
-      // Wait for reset timeout to transition to HALF_OPEN
+      // Wait for reset timeout
       vi.advanceTimersByTime(150);
 
-      expect(breaker.getState()).toBe(CircuitState.HALF_OPEN);
-
-      // Failure in HALF_OPEN should re-open the circuit
+      // The execute() call triggers OPEN -> HALF_OPEN, and failure re-opens it
       await expect(breaker.execute(failingFn)).rejects.toThrow('fail');
 
       expect(breaker.getState()).toBe(CircuitState.OPEN);
