@@ -69,3 +69,16 @@ export {
 
 // Version
 export { SDK_VERSION, getVersion } from './utils/version';
+
+// Domain types
+export type { EmailProvider, EmailData, SendEmailOptions, SendEmailRequest, SendEmailResponse, BulkEmailResult, BulkEmailResponse, HealthResponse } from './types/email';
+
+// Domain client
+export { HuefyEmailClient } from './huefy-client';
+
+// Domain errors
+export { HuefyDomainError, AuthenticationError, TemplateNotFoundError, InvalidTemplateDataError, InvalidRecipientError, ProviderError, RateLimitError, createHuefyErrorFromResponse, isHuefyDomainError } from './errors/huefy-errors';
+export { HuefyErrorCode, HUEFY_NUMERIC_CODES } from './errors/huefy-error-codes';
+
+// Validators
+export { validateEmail, validateTemplateKey, validateEmailData, validateSendEmailInput } from './validators/email-validators';
