@@ -1,6 +1,7 @@
 import { HttpClient } from './http/http-client';
 import type { HuefyConfig } from './types/config';
 import { createLogger } from './utils/logger';
+import type { Logger } from './utils/logger';
 import { setDefaultSanitizationConfig } from './errors/error-sanitizer';
 
 /**
@@ -11,6 +12,7 @@ import { setDefaultSanitizationConfig } from './errors/error-sanitizer';
  */
 export class HuefyClient {
   protected readonly http: HttpClient;
+  protected readonly logger: Logger;
   private readonly config: HuefyConfig;
 
   constructor(config: HuefyConfig) {
@@ -20,6 +22,7 @@ export class HuefyClient {
 
     this.config = config;
     const logger = config.logger ?? createLogger({ debug: false });
+    this.logger = logger;
 
     if (config.enableErrorSanitization) {
       setDefaultSanitizationConfig({ enabled: true, preserveOriginal: false });
