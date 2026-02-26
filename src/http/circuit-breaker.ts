@@ -75,6 +75,7 @@ export class CircuitBreaker {
   private failures = 0;
   private successes = 0;
   private halfOpenAttempts = 0;
+  private activeHalfOpenRequests = 0;
   private lastFailureTime: number | null = null;
   private lastSuccessTime: number | null = null;
 
@@ -117,6 +118,7 @@ export class CircuitBreaker {
     this.failures = 0;
     this.successes = 0;
     this.halfOpenAttempts = 0;
+    this.activeHalfOpenRequests = 0;
     this.lastFailureTime = null;
     this.lastSuccessTime = null;
     this.logger.info('Circuit breaker reset to CLOSED');
@@ -167,12 +169,12 @@ export class CircuitBreaker {
   }
 
   private async handleHalfOpen<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.halfOpenAttempts >= this.config.halfOpenRequests) {
+    if (this.activeHalfOpenRequests >= this.config.halfOpenRequests) {
       const retryAfterSeconds = Math.ceil(this.config.resetTimeout / 1000);
       throw new CircuitOpenError(retryAfterSeconds);
     }
 
-    this.halfOpenAttempts++;
+    this.activeHalfOpenRequests++;
 
     try {
       const result = await fn();
@@ -183,6 +185,8 @@ export class CircuitBreaker {
       this.onFailure();
       this.transitionTo(CircuitState.OPEN);
       throw error;
+    } finally {
+      this.activeHalfOpenRequests--;
     }
   }
 
@@ -207,6 +211,7 @@ export class CircuitBreaker {
     if (newState === CircuitState.CLOSED) {
       this.failures = 0;
       this.halfOpenAttempts = 0;
+      this.activeHalfOpenRequests = 0;
     }
 
     this.logger.info(
