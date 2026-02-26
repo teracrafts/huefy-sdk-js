@@ -4,7 +4,7 @@ import { SDK_VERSION } from './version';
  * Returns `true` when running inside a browser-like environment.
  */
 export function isBrowser(): boolean {
-  return typeof window !== 'undefined';
+  return typeof globalThis !== 'undefined' && 'window' in globalThis;
 }
 
 /**
