@@ -17,6 +17,15 @@ export interface RetryConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Lower bound of the jitter multiplier (−25 %). */
+const JITTER_MIN = 0.75;
+/** Upper bound of the jitter multiplier (+25 %). */
+const JITTER_MAX = 1.25;
+
+// ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
 
@@ -24,7 +33,7 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: 3,
   baseDelay: 1000,
   maxDelay: 30_000,
-  retryableStatusCodes: [429, 500, 502, 503, 504],
+  retryableStatusCodes: [408, 429, 500, 502, 503, 504],
 };
 
 // ---------------------------------------------------------------------------
@@ -82,7 +91,7 @@ export function calculateDelay(
   const capped = Math.min(exponential, maxDelay);
 
   // Apply +/-25 % jitter.
-  const jitterFactor = 0.75 + Math.random() * 0.5; // [0.75, 1.25)
+  const jitterFactor = JITTER_MIN + Math.random() * (JITTER_MAX - JITTER_MIN); // [0.75, 1.25)
   return Math.round(capped * jitterFactor);
 }
 
@@ -95,13 +104,21 @@ interface ErrorWithStatus {
   status?: number;
 }
 
+interface ErrorWithRecoverable {
+  recoverable?: boolean;
+}
+
 interface ErrorWithRetryAfter {
   retryAfter?: number;
 }
 
 /**
- * Returns `true` when the error's HTTP status code is present in the
- * configured set of retryable codes.
+ * Returns `true` when the error is eligible for retry.
+ *
+ * An error is retryable when:
+ * - its HTTP status code is in the configured set of retryable codes, **or**
+ * - it carries `recoverable: true` (e.g. network errors, timeout errors that
+ *   have no `statusCode`).
  */
 export function isRetryableError(
   error: unknown,
@@ -109,6 +126,12 @@ export function isRetryableError(
 ): boolean {
   if (error == null || typeof error !== 'object') {
     return false;
+  }
+
+  // Check recoverable flag first — this covers network and timeout errors
+  // that have no statusCode.
+  if ((error as ErrorWithRecoverable).recoverable === true) {
+    return true;
   }
 
   const statusError = error as ErrorWithStatus;
@@ -138,6 +161,7 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   config: Partial<RetryConfig> = {},
   logger?: Logger,
+  signal?: AbortSignal,
 ): Promise<T> {
   const resolved: RetryConfig = { ...DEFAULT_RETRY_CONFIG, ...config };
   const log: Logger = logger ?? new NoopLogger();
@@ -182,7 +206,7 @@ export async function withRetry<T>(
           `Retrying in ${delay}ms...`,
       );
 
-      await sleep(delay);
+      await sleep(delay, signal);
     }
   }
 
@@ -193,6 +217,21 @@ export async function withRetry<T>(
 // Internal utilities
 // ---------------------------------------------------------------------------
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason ?? new DOMException('The operation was aborted.', 'AbortError'));
+      return;
+    }
+
+    const timer = setTimeout(resolve, ms);
+
+    if (signal) {
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(signal.reason ?? new DOMException('The operation was aborted.', 'AbortError'));
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
 }
