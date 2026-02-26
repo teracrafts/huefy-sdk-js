@@ -54,10 +54,9 @@ describe('detectPotentialPII', () => {
 
     expect(result.length).toBeGreaterThanOrEqual(2);
 
-    const fieldPaths = result.map((r) => r.path ?? r.field);
-    // Should detect email and phone somewhere in the nested structure
-    expect(fieldPaths.some((p) => p.includes('email'))).toBe(true);
-    expect(fieldPaths.some((p) => p.includes('phone'))).toBe(true);
+    // detectPotentialPII returns string[] of dot-delimited paths
+    expect(result.some((p) => p.includes('email'))).toBe(true);
+    expect(result.some((p) => p.includes('phone'))).toBe(true);
   });
 
   it('returns empty array for safe data', () => {
@@ -108,8 +107,8 @@ describe('generateHMACSHA256', () => {
     const key = 'test-secret-key';
     const data = 'hello world';
 
-    const hash1 = await generateHMACSHA256(key, data);
-    const hash2 = await generateHMACSHA256(key, data);
+    const hash1 = await generateHMACSHA256(data, key);
+    const hash2 = await generateHMACSHA256(data, key);
 
     // Same input should produce same output
     expect(hash1).toBe(hash2);
@@ -121,8 +120,8 @@ describe('generateHMACSHA256', () => {
   it('produces different output for different data', async () => {
     const key = 'test-secret-key';
 
-    const hash1 = await generateHMACSHA256(key, 'data-one');
-    const hash2 = await generateHMACSHA256(key, 'data-two');
+    const hash1 = await generateHMACSHA256('data-one', key);
+    const hash2 = await generateHMACSHA256('data-two', key);
 
     expect(hash1).not.toBe(hash2);
   });
@@ -130,8 +129,8 @@ describe('generateHMACSHA256', () => {
   it('produces different output for different keys', async () => {
     const data = 'same-data';
 
-    const hash1 = await generateHMACSHA256('key-one', data);
-    const hash2 = await generateHMACSHA256('key-two', data);
+    const hash1 = await generateHMACSHA256(data, 'key-one');
+    const hash2 = await generateHMACSHA256(data, 'key-two');
 
     expect(hash1).not.toBe(hash2);
   });
@@ -142,7 +141,7 @@ describe('createRequestSignature', () => {
     const apiKey = 'sdk_abc12345xyz';
     const body = JSON.stringify({ to: 'user@example.com', subject: 'Hello' });
 
-    const result = await createRequestSignature(apiKey, body);
+    const result = await createRequestSignature(body, apiKey);
 
     expect(result).toHaveProperty('signature');
     expect(result).toHaveProperty('timestamp');
@@ -163,9 +162,9 @@ describe('verifyRequestSignature', () => {
     const apiKey = 'sdk_abc12345xyz';
     const body = JSON.stringify({ to: 'user@example.com', subject: 'Test' });
 
-    const { signature, timestamp } = await createRequestSignature(apiKey, body);
+    const { signature, timestamp } = await createRequestSignature(body, apiKey);
 
-    const isValid = await verifyRequestSignature(apiKey, body, signature, timestamp);
+    const isValid = await verifyRequestSignature(body, signature, timestamp, apiKey);
 
     expect(isValid).toBe(true);
   });
@@ -175,9 +174,9 @@ describe('verifyRequestSignature', () => {
     const originalBody = JSON.stringify({ to: 'user@example.com', subject: 'Test' });
     const tamperedBody = JSON.stringify({ to: 'attacker@evil.com', subject: 'Test' });
 
-    const { signature, timestamp } = await createRequestSignature(apiKey, originalBody);
+    const { signature, timestamp } = await createRequestSignature(originalBody, apiKey);
 
-    const isValid = await verifyRequestSignature(apiKey, tamperedBody, signature, timestamp);
+    const isValid = await verifyRequestSignature(tamperedBody, signature, timestamp, apiKey);
 
     expect(isValid).toBe(false);
   });
@@ -186,17 +185,17 @@ describe('verifyRequestSignature', () => {
     const apiKey = 'sdk_abc12345xyz';
     const body = JSON.stringify({ to: 'user@example.com', subject: 'Test' });
 
-    const { signature } = await createRequestSignature(apiKey, body);
+    const { signature } = await createRequestSignature(body, apiKey);
 
     // Use a timestamp far in the past (10 minutes ago)
     const expiredTimestamp = Date.now() - 10 * 60 * 1000;
 
     const isValid = await verifyRequestSignature(
-      apiKey,
       body,
       signature,
       expiredTimestamp,
-      { maxAge: 300_000 }, // 5 minute max age
+      apiKey,
+      300_000, // 5 minute max age
     );
 
     expect(isValid).toBe(false);
