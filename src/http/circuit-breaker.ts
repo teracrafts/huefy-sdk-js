@@ -211,7 +211,8 @@ export class CircuitBreaker {
     if (newState === CircuitState.CLOSED) {
       this.failures = 0;
       this.halfOpenAttempts = 0;
-      this.activeHalfOpenRequests = 0;
+      // Note: activeHalfOpenRequests is decremented by the finally block in
+      // handleHalfOpen — do NOT reset it here or the finally decrement goes negative.
     }
 
     this.logger.info(
