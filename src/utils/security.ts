@@ -74,12 +74,18 @@ export function isPotentialPIIField(fieldName: string): boolean {
 /**
  * Recursively inspects `data` and returns the dot-delimited paths of any
  * keys that look like PII fields.
+ *
+ * A `visited` set guards against infinite recursion on circular references.
  */
 export function detectPotentialPII(
   data: Record<string, unknown>,
   prefix?: string,
+  visited: Set<object> = new Set(),
 ): string[] {
   const results: string[] = [];
+
+  if (visited.has(data)) return results;
+  visited.add(data);
 
   for (const [key, value] of Object.entries(data)) {
     const path = prefix ? `${prefix}.${key}` : key;
@@ -90,8 +96,16 @@ export function detectPotentialPII(
 
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       results.push(
-        ...detectPotentialPII(value as Record<string, unknown>, path),
+        ...detectPotentialPII(value as Record<string, unknown>, path, visited),
       );
+    } else if (Array.isArray(value)) {
+      value.forEach((item, i) => {
+        if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
+          results.push(
+            ...detectPotentialPII(item as Record<string, unknown>, `${path}[${i}]`, visited),
+          );
+        }
+      });
     }
   }
 
