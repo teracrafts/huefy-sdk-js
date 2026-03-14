@@ -91,6 +91,11 @@ export class HttpClient {
   private readonly secondaryApiKey?: string;
   private readonly enableRequestSigning: boolean;
 
+  /** Tracks the currently active API key (rotates to secondary on 401). */
+  private activeApiKey: string;
+  /** Prevents multiple concurrent rotations racing to flip to secondary key. */
+  private keyRotationPromise: Promise<void> | null = null;
+
   constructor(apiKey: string, options: HttpClientOptions = {}) {
     if (!apiKey || apiKey.trim() === '') {
       throw new HuefyError(
@@ -100,6 +105,7 @@ export class HttpClient {
     }
 
     this.apiKey = apiKey;
+    this.activeApiKey = apiKey;
     this.baseUrl = (options.baseUrl ?? getBaseUrl()).replace(/\/+$/, '');
     this.timeout = options.timeout ?? 30_000;
     this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...options.retryConfig };
@@ -160,14 +166,14 @@ export class HttpClient {
     }
 
     if (!options.skipAuth) {
-      headers['X-API-Key'] = this.apiKey;
+      headers['X-API-Key'] = this.activeApiKey;
     }
 
     // -- Request signing (optional) ------------------------------------------
     if (this.enableRequestSigning && !options.skipAuth) {
       const sig = await createRequestSignature(
         serialisedBody ?? '',
-        this.apiKey,
+        this.activeApiKey,
       );
       headers['X-Timestamp'] = sig.timestamp.toString();
       headers['X-Key-Id'] = sig.keyId;
@@ -273,29 +279,24 @@ export class HttpClient {
       // Transparent secondary-key fallback on 401.
       if (
         this.secondaryApiKey &&
+        this.activeApiKey !== this.secondaryApiKey &&
         error instanceof HuefyError &&
         error.statusCode === 401
       ) {
-        this.logger.warn(
-          'Primary API key returned 401. Retrying with secondary key.',
-        );
-
-        const fallbackHeaders: Record<string, string> = {
-          'X-API-Key': this.secondaryApiKey,
-        };
-
-        // Recompute request signature with the secondary key.
-        if (this.enableRequestSigning) {
-          const sig = await createRequestSignature(
-            serialisedBody ?? '',
-            this.secondaryApiKey,
-          );
-          fallbackHeaders['X-Timestamp'] = sig.timestamp.toString();
-          fallbackHeaders['X-Key-Id'] = sig.keyId;
-          fallbackHeaders['X-Signature'] = sig.signature;
+        // Coalesce concurrent rotations — only one rotation fires, others await it.
+        if (!this.keyRotationPromise) {
+          this.keyRotationPromise = Promise.resolve().then(() => {
+            this.logger.warn(
+              'Primary API key returned 401. Rotating to secondary key.',
+            );
+            this.activeApiKey = this.secondaryApiKey!;
+            this.keyRotationPromise = null;
+          });
         }
+        await this.keyRotationPromise;
 
-        return executeWithRetry(fallbackHeaders);
+        // Re-issue the request with the now-rotated active key (headers rebuilt at top of request()).
+        return this.request<T>(path, options);
       }
 
       throw error;
