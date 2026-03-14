@@ -224,14 +224,19 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
       return;
     }
 
-    const timer = setTimeout(resolve, ms);
-
     if (signal) {
       const onAbort = () => {
         clearTimeout(timer);
         reject(signal.reason ?? new DOMException('The operation was aborted.', 'AbortError'));
       };
       signal.addEventListener('abort', onAbort, { once: true });
+      // Remove the abort listener when the timer fires normally to prevent leaks.
+      const timer = setTimeout(() => {
+        signal.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+    } else {
+      setTimeout(resolve, ms);
     }
   });
 }
