@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "lab": "npx tsx sdk-lab/run.ts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
