@@ -50,6 +50,12 @@ export function getBaseUrl(): string {
 // Types
 // ---------------------------------------------------------------------------
 
+export interface RateLimitInfo {
+  limit: number;
+  remaining: number;
+  resetAt: Date;
+}
+
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
@@ -75,6 +81,10 @@ export interface HttpClientOptions {
   secondaryApiKey?: string;
   /** When `true`, every request includes HMAC signature headers. */
   enableRequestSigning?: boolean;
+  /** Called after each response when rate limit headers are present. */
+  onRateLimitUpdate?: (info: RateLimitInfo) => void;
+  /** Called when remaining requests fall below 20% of limit. */
+  onRateLimitWarning?: (info: RateLimitInfo) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +100,8 @@ export class HttpClient {
   private readonly logger: Logger;
   private readonly secondaryApiKey?: string;
   private readonly enableRequestSigning: boolean;
+  private readonly onRateLimitUpdate?: (info: RateLimitInfo) => void;
+  private readonly onRateLimitWarning?: (info: RateLimitInfo) => void;
 
   /** Tracks the currently active API key (rotates to secondary on 401). */
   private activeApiKey: string;
@@ -116,6 +128,8 @@ export class HttpClient {
     this.logger = options.logger ?? new NoopLogger();
     this.secondaryApiKey = options.secondaryApiKey;
     this.enableRequestSigning = options.enableRequestSigning ?? false;
+    this.onRateLimitUpdate = options.onRateLimitUpdate;
+    this.onRateLimitWarning = options.onRateLimitWarning;
   }
 
   // -------------------------------------------------------------------------
@@ -231,9 +245,11 @@ export class HttpClient {
 
           // 204 No Content — return empty object as T.
           if (response.status === 204) {
+            this.parseRateLimitHeaders(response.headers);
             return {} as T;
           }
 
+          this.parseRateLimitHeaders(response.headers);
           return (await response.json()) as T;
         } catch (error: unknown) {
           if (error instanceof HuefyError) {
@@ -318,6 +334,37 @@ export class HttpClient {
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Parses X-RateLimit-* headers from a response and fires the configured
+   * callbacks when the headers are present.
+   */
+  private parseRateLimitHeaders(headers: Headers): void {
+    const limitStr = headers.get('X-RateLimit-Limit');
+    const remainingStr = headers.get('X-RateLimit-Remaining');
+    const resetStr = headers.get('X-RateLimit-Reset');
+
+    if (limitStr === null || remainingStr === null || resetStr === null) {
+      return;
+    }
+
+    const limit = parseInt(limitStr, 10);
+    const remaining = parseInt(remainingStr, 10);
+    // Reset value is a Unix timestamp (seconds).
+    const resetAt = new Date(parseInt(resetStr, 10) * 1000);
+
+    if (isNaN(limit) || isNaN(remaining) || isNaN(resetAt.getTime())) {
+      return;
+    }
+
+    const info: RateLimitInfo = { limit, remaining, resetAt };
+
+    this.onRateLimitUpdate?.(info);
+
+    if (remaining < limit * 0.2) {
+      this.onRateLimitWarning?.(info);
+    }
+  }
 
   /**
    * Safely parses the response body as JSON, falling back to raw text.
