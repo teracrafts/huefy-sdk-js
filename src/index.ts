@@ -71,7 +71,7 @@ export {
 export { SDK_VERSION, getVersion } from './utils/version';
 
 // Domain types
-export type { EmailProvider, EmailData, SendEmailOptions, SendEmailRequest, SendEmailResponse, BulkEmailResult, BulkEmailResponse, HealthResponse } from './types/email';
+export type { EmailProvider, EmailData, SendEmailOptions, SendEmailRequest, RecipientStatus, SendEmailResponseData, SendEmailResponse, BulkRecipient, SendBulkEmailsRequest, SendBulkEmailsResponseData, SendBulkEmailsResponse, HealthResponseData, HealthResponse, BulkEmailResult, BulkEmailResponse } from './types/email';
 
 // Domain client
 export { HuefyEmailClient } from './huefy-client';
