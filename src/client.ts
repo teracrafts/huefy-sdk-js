@@ -46,14 +46,14 @@ export class HuefyClient {
    * before issuing business requests.
    */
   async healthCheck(): Promise<{
-    status: string;
-    timestamp: string;
-    version?: string;
+    success: boolean;
+    data: { status: string; timestamp: string; version: string };
+    correlationId: string;
   }> {
     return this.http.request<{
-      status: string;
-      timestamp: string;
-      version?: string;
+      success: boolean;
+      data: { status: string; timestamp: string; version: string };
+      correlationId: string;
     }>('/health', { method: 'GET' });
   }
 
