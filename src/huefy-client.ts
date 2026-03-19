@@ -5,7 +5,9 @@ import type {
   SendEmailOptions,
   SendEmailRequest,
   SendEmailResponse,
-  BulkEmailResult,
+  BulkRecipient,
+  SendBulkEmailsRequest,
+  SendBulkEmailsResponse,
   HealthResponse,
 } from './types/email';
 import { validateSendEmailInput, validateBulkCount } from './validators/email-validators';
@@ -50,53 +52,56 @@ export class HuefyEmailClient extends BaseClient {
   }
 
   async sendBulkEmails(
-    emails: Array<{
-      templateKey: string;
-      data: EmailData;
-      recipient: string;
-      options?: SendEmailOptions;
-    }>,
-  ): Promise<BulkEmailResult[]> {
-    if (!emails || !Array.isArray(emails)) {
+    templateKey: string,
+    recipients: BulkRecipient[],
+    options?: {
+      providerType?: string;
+      fromEmail?: string;
+      fromName?: string;
+      replyTo?: string;
+      batchSize?: number;
+      delayBetweenBatches?: string;
+      correlationId?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<SendBulkEmailsResponse> {
+    if (!recipients || !Array.isArray(recipients)) {
       throw new HuefyDomainError(
-        'emails parameter is required and must be an array',
+        'recipients parameter is required and must be an array',
         HuefyErrorCode.VALIDATION_ERROR,
         400,
       );
     }
 
-    const countError = validateBulkCount(emails.length);
+    const countError = validateBulkCount(recipients.length);
     if (countError) {
       throw new HuefyDomainError(countError, HuefyErrorCode.VALIDATION_ERROR, 400);
     }
 
-    const requests: SendEmailRequest[] = emails.map((email) => {
-      warnIfPotentialPII(email.data as Record<string, unknown>, 'email template data', this.logger);
-      const errors = validateSendEmailInput(email.templateKey, email.data, email.recipient);
-      if (errors.length > 0) {
-        throw new HuefyDomainError(
-          `Validation failed for ${email.recipient}: ${errors.join('; ')}`,
-          HuefyErrorCode.VALIDATION_ERROR,
-          400,
-          { validationErrors: errors },
-        );
-      }
-      return {
-        templateKey: email.templateKey.trim(),
-        data: email.data,
-        recipient: email.recipient.trim(),
-        providerType: email.options?.provider,
-      };
-    });
+    if (!templateKey || typeof templateKey !== 'string' || templateKey.trim().length === 0) {
+      throw new HuefyDomainError(
+        'templateKey is required',
+        HuefyErrorCode.VALIDATION_ERROR,
+        400,
+      );
+    }
 
-    const response = await this.http.request<{ results: BulkEmailResult[] }>(
-      '/emails/bulk',
-      {
-        method: 'POST',
-        body: { emails: requests } as unknown as Record<string, unknown>,
-      },
-    );
-    return response.results;
+    for (const recipient of recipients) {
+      if (recipient.data) {
+        warnIfPotentialPII(recipient.data as Record<string, unknown>, 'email template data', this.logger);
+      }
+    }
+
+    const payload: SendBulkEmailsRequest = {
+      templateKey: templateKey.trim(),
+      recipients,
+      ...options,
+    };
+
+    return this.http.request<SendBulkEmailsResponse>('/emails/send-bulk', {
+      method: 'POST',
+      body: payload as unknown as Record<string, unknown>,
+    });
   }
 
   override async healthCheck(): Promise<HealthResponse> {
