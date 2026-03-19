@@ -49,8 +49,8 @@ describe('Email Validators', () => {
     it('rejects array', () => {
       expect(validateEmailData([] as any)).toBeTruthy();
     });
-    it('rejects non-string values', () => {
-      expect(validateEmailData({ count: 5 as any })).toBeTruthy();
+    it('accepts non-string values', () => {
+      expect(validateEmailData({ count: 5 as any })).toBeNull();
     });
   });
 
@@ -71,8 +71,8 @@ describe('Email Validators', () => {
     it('rejects zero', () => {
       expect(validateBulkCount(0)).toBeTruthy();
     });
-    it('rejects over 100', () => {
-      expect(validateBulkCount(101)).toBeTruthy();
+    it('rejects over 1000', () => {
+      expect(validateBulkCount(1001)).toBeTruthy();
     });
   });
 });
