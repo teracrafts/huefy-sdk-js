@@ -20,10 +20,10 @@ export interface RetryConfig {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Lower bound of the jitter multiplier (−25 %). */
-const JITTER_MIN = 0.75;
-/** Upper bound of the jitter multiplier (+25 %). */
-const JITTER_MAX = 1.25;
+/** Lower bound of the jitter multiplier (−20 %). */
+const JITTER_MIN = 0.8;
+/** Upper bound of the jitter multiplier (+20 %). */
+const JITTER_MAX = 1.2;
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -31,8 +31,8 @@ const JITTER_MAX = 1.25;
 
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: 3,
-  baseDelay: 1000,
-  maxDelay: 30_000,
+  baseDelay: 500,
+  maxDelay: 10_000,
   retryableStatusCodes: [408, 429, 500, 502, 503, 504],
 };
 
