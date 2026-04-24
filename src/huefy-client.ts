@@ -1,11 +1,10 @@
 import { HuefyClient as BaseClient } from './client';
 import type { HuefyConfig } from './types/config';
 import type {
-  EmailData,
-  SendEmailOptions,
+  SendEmailInput,
   SendEmailRequest,
   SendEmailResponse,
-  BulkRecipient,
+  SendBulkEmailsInput,
   SendBulkEmailsRequest,
   SendBulkEmailsResponse,
   HealthResponse,
@@ -20,12 +19,9 @@ export class HuefyEmailClient extends BaseClient {
     super(config);
   }
 
-  async sendEmail(
-    templateKey: string,
-    data: EmailData,
-    recipient: string,
-    options?: SendEmailOptions,
-  ): Promise<SendEmailResponse> {
+  async sendEmail(input: SendEmailInput): Promise<SendEmailResponse> {
+    const { templateKey, data, recipient, provider } = input;
+
     warnIfPotentialPII(data as Record<string, unknown>, 'email template data', this.logger);
 
     const errors = validateSendEmailInput(templateKey, data, recipient);
@@ -42,7 +38,7 @@ export class HuefyEmailClient extends BaseClient {
       templateKey: templateKey.trim(),
       data,
       recipient: recipient.trim(),
-      providerType: options?.provider,
+      providerType: provider,
     };
 
     return this.http.request<SendEmailResponse>('/emails/send', {
@@ -51,20 +47,9 @@ export class HuefyEmailClient extends BaseClient {
     });
   }
 
-  async sendBulkEmails(
-    templateKey: string,
-    recipients: BulkRecipient[],
-    options?: {
-      providerType?: string;
-      fromEmail?: string;
-      fromName?: string;
-      replyTo?: string;
-      batchSize?: number;
-      delayBetweenBatches?: string;
-      correlationId?: string;
-      metadata?: Record<string, unknown>;
-    },
-  ): Promise<SendBulkEmailsResponse> {
+  async sendBulkEmails(input: SendBulkEmailsInput): Promise<SendBulkEmailsResponse> {
+    const { templateKey, recipients, provider } = input;
+
     if (!recipients || !Array.isArray(recipients)) {
       throw new HuefyDomainError(
         'recipients parameter is required and must be an array',
@@ -95,7 +80,7 @@ export class HuefyEmailClient extends BaseClient {
     const payload: SendBulkEmailsRequest = {
       templateKey: templateKey.trim(),
       recipients,
-      ...options,
+      providerType: provider,
     };
 
     return this.http.request<SendBulkEmailsResponse>('/emails/send-bulk', {
