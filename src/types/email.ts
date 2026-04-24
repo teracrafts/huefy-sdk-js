@@ -4,6 +4,14 @@ export interface EmailData {
   [key: string]: string;
 }
 
+export interface SendEmailInput {
+  templateKey: string;
+  data: EmailData;
+  recipient: string;
+  provider?: EmailProvider;
+}
+
+/** @deprecated Use SendEmailInput */
 export interface SendEmailOptions {
   provider?: EmailProvider;
 }
@@ -46,6 +54,12 @@ export interface BulkRecipient {
   email: string;
   type?: 'to' | 'cc' | 'bcc';
   data?: Record<string, unknown>;
+}
+
+export interface SendBulkEmailsInput {
+  templateKey: string;
+  recipients: BulkRecipient[];
+  provider?: EmailProvider;
 }
 
 export interface SendBulkEmailsRequest {
