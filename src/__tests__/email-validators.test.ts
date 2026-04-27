@@ -3,6 +3,7 @@ import {
   validateEmail,
   validateTemplateKey,
   validateEmailData,
+  validateRecipient,
   validateSendEmailInput,
   validateBulkCount,
 } from '../validators/email-validators';
@@ -58,9 +59,38 @@ describe('Email Validators', () => {
     it('returns empty array for valid input', () => {
       expect(validateSendEmailInput('tpl', { name: 'John' }, 'user@test.com')).toEqual([]);
     });
+    it('accepts recipient object input', () => {
+      expect(
+        validateSendEmailInput('tpl', { name: 'John' }, {
+          email: 'user@test.com',
+          type: 'cc',
+          data: { segment: 'vip' },
+        }),
+      ).toEqual([]);
+    });
     it('returns multiple errors for invalid input', () => {
       const errors = validateSendEmailInput('', null as any, 'bad');
       expect(errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('validateRecipient', () => {
+    it('rejects invalid recipient type', () => {
+      expect(
+        validateRecipient({ email: 'user@test.com', type: 'weird' as 'to' }),
+      ).toBeTruthy();
+    });
+
+    it('accepts recipient type case-insensitively', () => {
+      expect(
+        validateRecipient({ email: 'user@test.com', type: 'CC' as 'to' }),
+      ).toBeNull();
+    });
+
+    it('rejects non-object recipient data', () => {
+      expect(
+        validateRecipient({ email: 'user@test.com', data: [] as unknown as Record<string, unknown> }),
+      ).toBeTruthy();
     });
   });
 

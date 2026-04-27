@@ -4,10 +4,20 @@ export interface EmailData {
   [key: string]: unknown;
 }
 
+export type RecipientType = 'to' | 'cc' | 'bcc';
+
+export interface EmailRecipient {
+  email: string;
+  type?: RecipientType;
+  data?: Record<string, unknown>;
+}
+
+export type SingleRecipient = string | EmailRecipient;
+
 export interface SendEmailInput {
   templateKey: string;
   data: EmailData;
-  recipient: string;
+  recipient: SingleRecipient;
   provider?: EmailProvider;
 }
 
@@ -19,7 +29,7 @@ export interface SendEmailOptions {
 export interface SendEmailRequest {
   templateKey: string;
   data: Record<string, unknown>;
-  recipient: string;
+  recipient: SingleRecipient;
   fromEmail?: string;
   fromName?: string;
   replyTo?: string;
@@ -52,7 +62,7 @@ export interface SendEmailResponse {
 
 export interface BulkRecipient {
   email: string;
-  type?: 'to' | 'cc' | 'bcc';
+  type?: RecipientType;
   data?: Record<string, unknown>;
 }
 
@@ -79,6 +89,9 @@ export interface SendBulkEmailsResponseData {
   batchId: string;
   status: string;
   templateKey: string;
+  templateVersion: number;
+  senderUsed: string;
+  senderVerified: boolean;
   totalRecipients: number;
   processedCount: number;
   successCount: number;
@@ -87,7 +100,7 @@ export interface SendBulkEmailsResponseData {
   startedAt: string;
   completedAt?: string | null;
   recipients: RecipientStatus[];
-  errors?: Array<{ code: string; message: string; recipient?: string }>;
+  errors?: Array<{ code: string; message: string; recipient?: string; details?: Record<string, unknown> }>;
   metadata?: Record<string, unknown>;
 }
 

@@ -71,7 +71,7 @@ export {
 export { SDK_VERSION, getVersion } from './utils/version';
 
 // Domain types
-export type { EmailProvider, EmailData, SendEmailInput, SendEmailOptions, SendEmailRequest, RecipientStatus, SendEmailResponseData, SendEmailResponse, BulkRecipient, SendBulkEmailsInput, SendBulkEmailsRequest, SendBulkEmailsResponseData, SendBulkEmailsResponse, HealthResponseData, HealthResponse, BulkEmailResult, BulkEmailResponse } from './types/email';
+export type { EmailProvider, EmailData, RecipientType, EmailRecipient, SingleRecipient, SendEmailInput, SendEmailOptions, SendEmailRequest, RecipientStatus, SendEmailResponseData, SendEmailResponse, BulkRecipient, SendBulkEmailsInput, SendBulkEmailsRequest, SendBulkEmailsResponseData, SendBulkEmailsResponse, HealthResponseData, HealthResponse, BulkEmailResult, BulkEmailResponse } from './types/email';
 
 // Domain client
 export { HuefyEmailClient } from './huefy-client';
@@ -81,4 +81,4 @@ export { HuefyDomainError, AuthenticationError, TemplateNotFoundError, InvalidTe
 export { HuefyErrorCode, HUEFY_NUMERIC_CODES } from './errors/huefy-error-codes';
 
 // Validators
-export { validateEmail, validateTemplateKey, validateEmailData, validateSendEmailInput } from './validators/email-validators';
+export { validateEmail, validateTemplateKey, validateEmailData, validateRecipient, validateSendEmailInput } from './validators/email-validators';

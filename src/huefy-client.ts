@@ -8,8 +8,10 @@ import type {
   SendBulkEmailsRequest,
   SendBulkEmailsResponse,
   HealthResponse,
+  EmailRecipient,
+  SingleRecipient,
 } from './types/email';
-import { validateSendEmailInput, validateBulkCount } from './validators/email-validators';
+import { validateSendEmailInput, validateBulkCount, validateEmail, validateRecipient } from './validators/email-validators';
 import { HuefyDomainError } from './errors/huefy-errors';
 import { HuefyErrorCode } from './errors/huefy-error-codes';
 import { warnIfPotentialPII } from './utils/security';
@@ -34,10 +36,19 @@ export class HuefyEmailClient extends BaseClient {
       );
     }
 
+    const normalizedRecipient = normalizeRecipient(recipient);
+    if (typeof normalizedRecipient !== 'string' && normalizedRecipient.data) {
+      warnIfPotentialPII(
+        normalizedRecipient.data as Record<string, unknown>,
+        'recipient template data',
+        this.logger,
+      );
+    }
+
     const payload: SendEmailRequest = {
       templateKey: templateKey.trim(),
       data,
-      recipient: recipient.trim(),
+      recipient: normalizedRecipient,
       providerType: provider,
     };
 
@@ -73,13 +84,23 @@ export class HuefyEmailClient extends BaseClient {
 
     for (const recipient of recipients) {
       if (recipient.data) {
-        warnIfPotentialPII(recipient.data as Record<string, unknown>, 'email template data', this.logger);
+        warnIfPotentialPII(recipient.data as Record<string, unknown>, 'recipient template data', this.logger);
+      }
+
+      const emailError = validateEmail(recipient.email);
+      if (emailError) {
+        throw new HuefyDomainError(emailError, HuefyErrorCode.VALIDATION_ERROR, 400);
+      }
+
+      const recipientError = validateRecipient(recipient);
+      if (recipientError) {
+        throw new HuefyDomainError(recipientError, HuefyErrorCode.VALIDATION_ERROR, 400);
       }
     }
 
     const payload: SendBulkEmailsRequest = {
       templateKey: templateKey.trim(),
-      recipients,
+      recipients: recipients.map(normalizeBulkRecipient),
       providerType: provider,
     };
 
@@ -92,4 +113,32 @@ export class HuefyEmailClient extends BaseClient {
   override async healthCheck(): Promise<HealthResponse> {
     return this.http.request<HealthResponse>('/health', { method: 'GET' });
   }
+}
+
+function normalizeRecipient(recipient: SingleRecipient): SingleRecipient {
+  if (typeof recipient === 'string') {
+    return recipient.trim();
+  }
+
+  const normalized: EmailRecipient = {
+    email: recipient.email.trim(),
+  };
+
+  if (recipient.type !== undefined) {
+    normalized.type = recipient.type.trim().toLowerCase() as EmailRecipient['type'];
+  }
+
+  if (recipient.data !== undefined) {
+    normalized.data = recipient.data;
+  }
+
+  return normalized;
+}
+
+function normalizeBulkRecipient(recipient: SendBulkEmailsInput['recipients'][number]): SendBulkEmailsInput['recipients'][number] {
+  return {
+    email: recipient.email.trim(),
+    ...(recipient.type !== undefined ? { type: recipient.type.trim().toLowerCase() as EmailRecipient['type'] } : {}),
+    ...(recipient.data !== undefined ? { data: recipient.data } : {}),
+  };
 }

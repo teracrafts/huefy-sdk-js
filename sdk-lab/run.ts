@@ -87,7 +87,7 @@ async function run(): Promise<void> {
   // 7. Health check
   try {
     const baseUrl = process.env.HUEFY_MODE === 'local'
-      ? 'http://localhost:3000/api/v1/sdk'
+      ? 'https://api.huefy.on/api/v1/sdk'
       : 'https://api.huefy.dev/api/v1/sdk';
     const hc = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key', baseUrl });
     await hc.healthCheck();

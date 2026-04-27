@@ -28,12 +28,26 @@ const client = new HuefyEmailClient({
 
 const response = await client.sendEmail({
   templateKey: 'welcome-email',
-  recipient: { email: 'alice@example.com', name: 'Alice' },
-  variables: { firstName: 'Alice', trialDays: 14 },
+  recipient: 'alice@example.com',
+  data: { firstName: 'Alice', trialDays: 14 },
 });
 
-console.log(response.messageId);
+console.log(response.data.emailId);
 client.close();
+```
+
+`recipient` also accepts an object when you need recipient-scoped data or a non-default recipient type:
+
+```typescript
+await client.sendEmail({
+  templateKey: 'welcome-email',
+  recipient: {
+    email: 'reviewer@example.com',
+    type: 'cc',
+    data: { locale: 'en' },
+  },
+  data: { firstName: 'Alice' },
+});
 ```
 
 ## Key Features
@@ -69,40 +83,41 @@ client.close();
 
 ```typescript
 const bulk = await client.sendBulkEmails({
-  emails: [
-    { templateKey: 'promo', recipient: { email: 'bob@example.com' } },
-    { templateKey: 'promo', recipient: { email: 'carol@example.com' } },
+  templateKey: 'promo',
+  recipients: [
+    { email: 'bob@example.com' },
+    { email: 'carol@example.com' },
   ],
 });
 
-console.log(`Sent: ${bulk.totalSent}, Failed: ${bulk.totalFailed}`);
+console.log(`Sent: ${bulk.data.successCount}, Failed: ${bulk.data.failureCount}`);
 ```
 
 ## Error Handling
 
 ```typescript
 import {
-  HuefyEmailClient,
-  HuefyAuthError,
-  HuefyRateLimitError,
-  HuefyCircuitOpenError,
-  HuefyNetworkError,
+  AuthenticationError,
+  CircuitOpenError,
+  HuefyError,
+  RateLimitError,
 } from '@teracrafts/huefy';
 
 try {
   const res = await client.sendEmail({
     templateKey: 'order-confirmation',
-    recipient: { email: 'user@example.com' },
+    recipient: 'user@example.com',
+    data: {},
   });
-  console.log('Delivered:', res.messageId);
+  console.log('Delivered:', res.data.emailId);
 } catch (err) {
-  if (err instanceof HuefyAuthError) {
+  if (err instanceof AuthenticationError) {
     console.error('Invalid API key');
-  } else if (err instanceof HuefyRateLimitError) {
+  } else if (err instanceof RateLimitError) {
     console.error(`Rate limited. Retry after ${err.retryAfter}s`);
-  } else if (err instanceof HuefyCircuitOpenError) {
+  } else if (err instanceof CircuitOpenError) {
     console.error('Circuit open — service unavailable, backing off');
-  } else if (err instanceof HuefyNetworkError) {
+  } else if (err instanceof HuefyError) {
     console.error('Network error:', err.message);
   }
 }
@@ -113,24 +128,23 @@ try {
 | Class | Code | Meaning |
 |-------|------|---------|
 | `HuefyInitError` | 1001 | Client failed to initialise |
-| `HuefyAuthError` | 1102 | API key rejected |
-| `HuefyNetworkError` | 1201 | Upstream request failed |
-| `HuefyCircuitOpenError` | 1301 | Circuit breaker tripped |
-| `HuefyRateLimitError` | 2003 | Rate limit exceeded |
-| `HuefyTemplateMissingError` | 2005 | Template key not found |
+| `AuthenticationError` | `INVALID_API_KEY` | API key rejected |
+| `RateLimitError` | `RATE_LIMIT_EXCEEDED` | Rate limit exceeded |
+| `TemplateNotFoundError` | `TEMPLATE_NOT_FOUND` | Template key not found |
+| `HuefyError` | `ErrorCode.*` | Transport or HTTP-layer SDK failure |
 
 ## Health Check
 
 ```typescript
 const health = await client.healthCheck();
-if (health.status !== 'healthy') {
-  console.warn('Huefy degraded:', health.status);
+if (health.data.status !== 'healthy') {
+  console.warn('Huefy degraded:', health.data.status);
 }
 ```
 
 ## Local Development
 
-Set `HUEFY_MODE=local` to point the SDK at a local Huefy server:
+Set `HUEFY_MODE=local` to target `https://api.huefy.on/api/v1/sdk`:
 
 ```bash
 HUEFY_MODE=local node my-script.js
@@ -141,7 +155,7 @@ Or set `baseUrl` explicitly:
 ```typescript
 const client = new HuefyEmailClient({
   apiKey: 'sdk_local_key',
-  baseUrl: 'http://localhost:3000/api/v1/sdk',
+  baseUrl: 'https://api.huefy.on/api/v1/sdk',
 });
 ```
 
