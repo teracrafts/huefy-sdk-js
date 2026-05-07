@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "lab": "npx tsx sdk-lab/run.ts"
+    "lab": "npm run build && node sdk-lab/run.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

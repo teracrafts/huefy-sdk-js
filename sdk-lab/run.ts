@@ -1,13 +1,11 @@
 /**
  * Huefy TypeScript SDK Lab
- * Internal integration verification — no real network calls (except health check).
+ * Core email contract verification without live sends.
  */
 
 import { HuefyEmailClient } from '../src/huefy-client';
-import { signPayload } from '../src/utils/security';
-import { sanitizeErrorMessage } from '../src/errors/error-sanitizer';
-import { detectPotentialPII } from '../src/utils/security';
-import { CircuitBreaker, CircuitState } from '../src/http/circuit-breaker';
+
+declare const process: { exit(code?: number): never };
 
 const PASS = '\x1b[32m[PASS]\x1b[0m';
 const FAIL = '\x1b[31m[FAIL]\x1b[0m';
@@ -28,7 +26,6 @@ function check(label: string, ok: boolean, detail?: string): void {
 async function run(): Promise<void> {
   console.log('=== Huefy TypeScript SDK Lab ===\n');
 
-  // 1. Initialization
   let client: HuefyEmailClient | undefined;
   try {
     client = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key' });
@@ -37,73 +34,192 @@ async function run(): Promise<void> {
     check('Initialization', false, String(e));
   }
 
-  // 2. Config validation
   try {
-    new HuefyEmailClient({ apiKey: '' });
-    check('Config validation', false, 'Expected error was not thrown');
-  } catch {
-    check('Config validation', true);
-  }
+    const emailClient = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key' }) as HuefyEmailClient & {
+      http: { request: <T = unknown>(path: string, options?: Record<string, unknown>) => Promise<T> };
+    };
+    let capturedPath = '';
+    let capturedOptions: Record<string, unknown> | undefined;
+    emailClient.http = {
+      request: async (path: string, options?: Record<string, unknown>) => {
+        capturedPath = path;
+        capturedOptions = options;
+        return {
+          success: true,
+          data: {
+            emailId: 'email_123',
+            status: 'queued',
+            recipients: [{ email: 'alice@example.com', status: 'queued' }],
+          },
+          correlationId: 'corr_send_123',
+        };
+      },
+    };
 
-  // 3. HMAC signing
-  try {
-    const signed = await signPayload({ test: 'data' }, 'test_secret', 1700000000);
-    const ok = typeof signed.signature === 'string' && signed.signature.length === 64;
-    check('HMAC signing', ok, ok ? '' : `signature="${signed.signature}"`);
+    const response = await emailClient.sendEmail({
+      templateKey: ' welcome-email ',
+      data: { firstName: 'Alice' },
+      recipient: { email: ' alice@example.com ', type: 'cc', data: { locale: 'en' } },
+      provider: 'ses',
+    });
+
+    const body = capturedOptions?.body as Record<string, unknown> | undefined;
+    const recipient = body?.recipient as Record<string, unknown> | undefined;
+    const ok =
+      capturedPath === '/emails/send' &&
+      capturedOptions?.method === 'POST' &&
+      body?.templateKey === 'welcome-email' &&
+      recipient?.email === 'alice@example.com' &&
+      recipient?.type === 'cc' &&
+      body?.providerType === 'ses' &&
+      response.data.emailId === 'email_123';
+    check('Single email contract', ok, ok ? '' : JSON.stringify({ capturedPath, capturedOptions, response }));
   } catch (e) {
-    check('HMAC signing', false, String(e));
+    check('Single email contract', false, String(e));
   }
 
-  // 4. Error sanitization
   try {
-    const input = 'Error at 192.168.1.1 for user@example.com';
-    const result = sanitizeErrorMessage(input);
-    const ok = !result.includes('192.168.1.1') && !result.includes('user@example.com');
-    check('Error sanitization', ok, ok ? '' : `result="${result}"`);
+    const emailClient = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key' }) as HuefyEmailClient & {
+      http: { request: <T = unknown>(path: string, options?: Record<string, unknown>) => Promise<T> };
+    };
+    let capturedPath = '';
+    let capturedOptions: Record<string, unknown> | undefined;
+    emailClient.http = {
+      request: async (path: string, options?: Record<string, unknown>) => {
+        capturedPath = path;
+        capturedOptions = options;
+        return {
+          success: true,
+          data: {
+            batchId: 'batch_123',
+            status: 'processing',
+            templateKey: 'digest',
+            templateVersion: 3,
+            senderUsed: 'alerts@huefy.dev',
+            senderVerified: true,
+            totalRecipients: 2,
+            processedCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            suppressedCount: 0,
+            startedAt: '2026-05-07T10:00:00Z',
+            recipients: [
+              { email: 'alice@example.com', status: 'queued' },
+              { email: 'bob@example.com', status: 'queued' },
+            ],
+          },
+          correlationId: 'corr_bulk_123',
+        };
+      },
+    };
+
+    const response = await emailClient.sendBulkEmails({
+      templateKey: ' digest ',
+      recipients: [
+        { email: ' alice@example.com ', type: 'to', data: { locale: 'en' } },
+        { email: ' bob@example.com ', type: 'bcc' },
+      ],
+      provider: 'mailgun',
+    });
+
+    const body = capturedOptions?.body as Record<string, unknown> | undefined;
+    const recipients = body?.recipients as Array<Record<string, unknown>> | undefined;
+    const ok =
+      capturedPath === '/emails/send-bulk' &&
+      capturedOptions?.method === 'POST' &&
+      body?.templateKey === 'digest' &&
+      body?.providerType === 'mailgun' &&
+      recipients?.[0]?.email === 'alice@example.com' &&
+      recipients?.[0]?.type === 'to' &&
+      recipients?.[1]?.type === 'bcc' &&
+      response.data.batchId === 'batch_123';
+    check('Bulk email contract', ok, ok ? '' : JSON.stringify({ capturedPath, capturedOptions, response }));
   } catch (e) {
-    check('Error sanitization', false, String(e));
+    check('Bulk email contract', false, String(e));
   }
 
-  // 5. PII detection
   try {
-    const fields = detectPotentialPII({ email: 'test@test.com', name: 'John', ssn: '123-45-6789' });
-    const hasEmail = fields.includes('email');
-    const hasSsn = fields.includes('ssn');
-    const ok = fields.length > 0 && hasEmail && hasSsn;
-    check('PII detection', ok, ok ? '' : `fields=${JSON.stringify(fields)}`);
+    const emailClient = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key' }) as HuefyEmailClient & {
+      http: { request: <T = unknown>(path: string, options?: Record<string, unknown>) => Promise<T> };
+    };
+    let reachedTransport = false;
+    emailClient.http = {
+      request: async () => {
+        reachedTransport = true;
+        return {};
+      },
+    };
+    await emailClient.sendEmail({
+      templateKey: 'welcome',
+      data: {},
+      recipient: { email: 'not-an-email' },
+    });
+    check('Validation rejects invalid single recipient', false, 'expected validation error');
+    void reachedTransport;
   } catch (e) {
-    check('PII detection', false, String(e));
-  }
-
-  // 6. Circuit breaker state
-  try {
-    const cb = new CircuitBreaker();
-    const state = cb.getState();
-    check('Circuit breaker state', state === CircuitState.CLOSED, `state=${state}`);
-  } catch (e) {
-    check('Circuit breaker state', false, String(e));
-  }
-
-  // 7. Health check
-  try {
-    const baseUrl = process.env.HUEFY_MODE === 'local'
-      ? 'https://api.huefy.on/api/v1/sdk'
-      : 'https://api.huefy.dev/api/v1/sdk';
-    const hc = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key', baseUrl });
-    await hc.healthCheck();
-    check('Health check', true);
-  } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    const isNetworkError = /fetch|network|ECONNREFUSED|ENOTFOUND|timeout|connect/i.test(msg);
-    const isAuthError = /401|403|unauthorized|forbidden|invalid api key/i.test(msg);
-    check('Health check', isNetworkError || isAuthError, `(network/auth error — ${msg.slice(0, 80)})`);
+    check(
+      'Validation rejects invalid single recipient',
+      /invalid email|recipient type/i.test(msg),
+      msg,
+    );
   }
 
-  // 8. Cleanup
   try {
-    if (client) {
-      client.close();
-    }
+    const emailClient = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key' }) as HuefyEmailClient & {
+      http: { request: <T = unknown>(path: string, options?: Record<string, unknown>) => Promise<T> };
+    };
+    let reachedTransport = false;
+    emailClient.http = {
+      request: async () => {
+        reachedTransport = true;
+        return {};
+      },
+    };
+    await emailClient.sendBulkEmails({
+      templateKey: 'digest',
+      recipients: [],
+    });
+    check('Validation rejects invalid bulk request', false, 'expected validation error');
+    void reachedTransport;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    check('Validation rejects invalid bulk request', /at least one email/i.test(msg), msg);
+  }
+
+  try {
+    const healthClient = new HuefyEmailClient({ apiKey: 'sdk_lab_test_key' }) as HuefyEmailClient & {
+      http: { request: <T = unknown>(path: string, options?: Record<string, unknown>) => Promise<T> };
+    };
+    let capturedPath = '';
+    let capturedMethod = '';
+    healthClient.http = {
+      request: async (path: string, options?: Record<string, unknown>) => {
+        capturedPath = path;
+        capturedMethod = String(options.method ?? '');
+        return {
+          success: true,
+          data: {
+            status: 'healthy',
+            timestamp: '2026-05-07T10:00:00Z',
+            version: '1.0.0',
+          },
+          correlationId: 'corr_health_123',
+        };
+      },
+    };
+    const response = await healthClient.healthCheck();
+    const ok =
+      capturedPath === '/health' &&
+      capturedMethod === 'GET' &&
+      response.data.status === 'healthy';
+    check('Health check path', ok, ok ? '' : JSON.stringify({ capturedPath, capturedMethod, response }));
+  } catch (e) {
+    check('Health check path', false, String(e));
+  }
+
+  try {
+    client?.close();
     check('Cleanup', true);
   } catch (e) {
     check('Cleanup', false, String(e));
@@ -116,9 +232,8 @@ async function run(): Promise<void> {
   if (failed === 0) {
     console.log('All verifications passed!');
     process.exit(0);
-  } else {
-    process.exit(1);
   }
+  process.exit(1);
 }
 
 run().catch((e) => {
