@@ -1,12 +1,14 @@
 /**
  * Huefy TypeScript SDK Lab
- * Core email contract verification without live sends.
+ * Core email contract verification with optional live sends.
  */
 
 const { HuefyEmailClient } = require("../dist/huefy-client.js");
 
 const PASS = "\x1b[32m[PASS]\x1b[0m";
 const FAIL = "\x1b[31m[FAIL]\x1b[0m";
+const LIVE_MODE = (process.env.HUEFY_SDK_LAB_MODE || "").trim().toLowerCase() === "live";
+const VALID_PROVIDERS = new Set(["ses", "sendgrid", "mailgun", "mailchimp"]);
 
 let passed = 0;
 let failed = 0;
@@ -22,9 +24,36 @@ function check(label, ok, detail = "") {
   failed++;
 }
 
-async function run() {
-  console.log("=== Huefy TypeScript SDK Lab ===\n");
+function requireEnv(name) {
+  const value = (process.env[name] || "").trim();
+  if (!value) {
+    throw new Error(`${name} is required in live mode`);
+  }
+  return value;
+}
 
+function resolveProvider() {
+  const provider = (process.env.HUEFY_SDK_LIVE_PROVIDER || "").trim().toLowerCase();
+  if (!provider) {
+    return undefined;
+  }
+  if (!VALID_PROVIDERS.has(provider)) {
+    throw new Error(`HUEFY_SDK_LIVE_PROVIDER must be one of: ${Array.from(VALID_PROVIDERS).join(", ")}`);
+  }
+  return provider;
+}
+
+function getLiveConfig() {
+  return {
+    apiKey: requireEnv("HUEFY_SDK_LIVE_API_KEY"),
+    baseUrl: requireEnv("HUEFY_SDK_LIVE_BASE_URL"),
+    templateKey: requireEnv("HUEFY_SDK_LIVE_TEMPLATE_KEY"),
+    recipient: requireEnv("HUEFY_SDK_LIVE_RECIPIENT"),
+    provider: resolveProvider(),
+  };
+}
+
+async function runContract() {
   let client;
   try {
     client = new HuefyEmailClient({ apiKey: "sdk_lab_test_key" });
@@ -191,6 +220,107 @@ async function run() {
     check("Cleanup", true);
   } catch (error) {
     check("Cleanup", false, String(error));
+  }
+}
+
+async function runLive() {
+  const live = getLiveConfig();
+  let client;
+
+  try {
+    client = new HuefyEmailClient({
+      apiKey: live.apiKey,
+      baseUrl: live.baseUrl,
+    });
+    check("Initialization", true);
+  } catch (error) {
+    check("Initialization", false, String(error));
+    return;
+  }
+
+  try {
+    const response = await client.healthCheck();
+    const ok = response.success === true && response.data.status === "healthy";
+    check("Health check", ok, ok ? "" : JSON.stringify(response));
+  } catch (error) {
+    check("Health check", false, String(error));
+  }
+
+  try {
+    const response = await client.sendEmail({
+      templateKey: live.templateKey,
+      data: { sdkLabMode: "live", sdk: "typescript", operation: "single" },
+      recipient: live.recipient,
+      ...(live.provider ? { provider: live.provider } : {}),
+    });
+    const ok =
+      response.success === true &&
+      typeof response.data.emailId === "string" &&
+      response.data.emailId.length > 0;
+    check("Single send", ok, ok ? "" : JSON.stringify(response));
+  } catch (error) {
+    check("Single send", false, String(error));
+  }
+
+  try {
+    const response = await client.sendBulkEmails({
+      templateKey: live.templateKey,
+      recipients: [
+        { email: live.recipient, type: "to", data: { sdkLabMode: "live", sdk: "typescript", operation: "bulk" } },
+      ],
+      ...(live.provider ? { provider: live.provider } : {}),
+    });
+    const ok =
+      response.success === true &&
+      typeof response.data.batchId === "string" &&
+      response.data.batchId.length > 0 &&
+      response.data.totalRecipients >= 1;
+    check("Bulk send", ok, ok ? "" : JSON.stringify(response));
+  } catch (error) {
+    check("Bulk send", false, String(error));
+  }
+
+  try {
+    await client.sendEmail({
+      templateKey: live.templateKey,
+      data: { sdkLabMode: "live", sdk: "typescript", operation: "invalid-single" },
+      recipient: "not-an-email",
+      ...(live.provider ? { provider: live.provider } : {}),
+    });
+    check("Invalid single rejection", false, "expected validation error");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    check("Invalid single rejection", /invalid email/i.test(message), message);
+  }
+
+  try {
+    await client.sendBulkEmails({
+      templateKey: live.templateKey,
+      recipients: [],
+      ...(live.provider ? { provider: live.provider } : {}),
+    });
+    check("Invalid bulk rejection", false, "expected validation error");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    check("Invalid bulk rejection", /at least one (recipient|email)/i.test(message), message);
+  }
+
+  try {
+    client.close();
+    check("Cleanup", true);
+  } catch (error) {
+    check("Cleanup", false, String(error));
+  }
+}
+
+async function run() {
+  console.log("=== Huefy TypeScript SDK Lab ===\n");
+  console.log(`Mode: ${LIVE_MODE ? "live" : "contract"}\n`);
+
+  if (LIVE_MODE) {
+    await runLive();
+  } else {
+    await runContract();
   }
 
   console.log("\n========================================");
