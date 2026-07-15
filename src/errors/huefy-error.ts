@@ -167,6 +167,20 @@ export class HuefyError extends Error {
       });
     }
 
+    // 402 Payment Required — quota/billing exhaustion is not transient.
+    if (
+      status === 402 ||
+      parsed.code === ErrorCode.INSUFFICIENT_QUOTA ||
+      parsed.code === 'INSUFFICIENT_QUOTA'
+    ) {
+      return new HuefyError(serverMessage, ErrorCode.INSUFFICIENT_QUOTA, {
+        statusCode: status,
+        recoverable: false,
+        requestId,
+        details: parsed,
+      });
+    }
+
     // 5xx Server errors
     if (status >= 500) {
       const code =

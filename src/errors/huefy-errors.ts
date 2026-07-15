@@ -78,6 +78,13 @@ export class RateLimitError extends HuefyDomainError {
   }
 }
 
+export class InsufficientQuotaError extends HuefyDomainError {
+  constructor(message = 'Insufficient quota', details?: unknown) {
+    super(message, HuefyErrorCode.INSUFFICIENT_QUOTA, 402, details);
+    this.name = 'InsufficientQuotaError';
+  }
+}
+
 export function createHuefyErrorFromResponse(data: { error: string; code: string; details?: unknown }, statusCode: number): HuefyDomainError {
   const code = data.code as HuefyErrorCode;
   switch (code) {
@@ -93,6 +100,8 @@ export function createHuefyErrorFromResponse(data: { error: string; code: string
       return new ProviderError(data.error, data.details);
     case HuefyErrorCode.RATE_LIMIT_EXCEEDED:
       return new RateLimitError(data.error, undefined, data.details);
+    case HuefyErrorCode.INSUFFICIENT_QUOTA:
+      return new InsufficientQuotaError(data.error, data.details);
     default:
       return new HuefyDomainError(data.error, code || HuefyErrorCode.UNEXPECTED_ERROR, statusCode, data.details);
   }

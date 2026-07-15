@@ -13,6 +13,7 @@ export enum HuefyErrorCode {
   NETWORK_ERROR = 'NETWORK_ERROR',
   UNEXPECTED_ERROR = 'UNEXPECTED_ERROR',
   INVALID_CONFIG = 'INVALID_CONFIG',
+  INSUFFICIENT_QUOTA = 'INSUFFICIENT_QUOTA',
 }
 
 export const HUEFY_NUMERIC_CODES: Record<HuefyErrorCode, number> = {
@@ -30,4 +31,5 @@ export const HUEFY_NUMERIC_CODES: Record<HuefyErrorCode, number> = {
   [HuefyErrorCode.NETWORK_ERROR]: 2111,
   [HuefyErrorCode.UNEXPECTED_ERROR]: 2112,
   [HuefyErrorCode.INVALID_CONFIG]: 2113,
+  [HuefyErrorCode.INSUFFICIENT_QUOTA]: 2114,
 };

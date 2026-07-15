@@ -35,6 +35,9 @@ export enum ErrorCode {
 
   // Validation
   VALIDATION_ERROR = 'VALIDATION_ERROR',
+
+  // Billing / quota
+  INSUFFICIENT_QUOTA = 'INSUFFICIENT_QUOTA',
 }
 
 /**
@@ -63,6 +66,8 @@ export const numericCodeMap: Record<ErrorCode, number> = {
   [ErrorCode.SECURITY_SIGNATURE_INVALID]: 1501,
 
   [ErrorCode.VALIDATION_ERROR]: 1600,
+
+  [ErrorCode.INSUFFICIENT_QUOTA]: 1700,
 };
 
 /**

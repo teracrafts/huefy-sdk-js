@@ -77,7 +77,7 @@ export type { EmailProvider, EmailData, RecipientType, EmailRecipient, SingleRec
 export { HuefyEmailClient } from './huefy-client';
 
 // Domain errors
-export { HuefyDomainError, AuthenticationError, TemplateNotFoundError, InvalidTemplateDataError, InvalidRecipientError, ProviderError, RateLimitError, createHuefyErrorFromResponse, isHuefyDomainError } from './errors/huefy-errors';
+export { HuefyDomainError, AuthenticationError, TemplateNotFoundError, InvalidTemplateDataError, InvalidRecipientError, ProviderError, RateLimitError, InsufficientQuotaError, createHuefyErrorFromResponse, isHuefyDomainError } from './errors/huefy-errors';
 export { HuefyErrorCode, HUEFY_NUMERIC_CODES } from './errors/huefy-error-codes';
 
 // Validators

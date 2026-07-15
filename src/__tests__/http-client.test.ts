@@ -107,6 +107,37 @@ describe('HttpClient', () => {
     }
   });
 
+  it('maps 402 quota exhaustion to a non-retryable quota error', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 402,
+      text: () => Promise.resolve(JSON.stringify({
+        error: 'Quota exceeded',
+        code: 'INSUFFICIENT_QUOTA',
+        details: { limit: 1000, used: 1000 },
+      })),
+      headers: new Headers({ 'content-type': 'application/json' }),
+    });
+
+    await expect(client.request('/emails/send', { method: 'POST' })).rejects.toThrow(HuefyError);
+
+    try {
+      await client.request('/emails/send', { method: 'POST' });
+    } catch (err) {
+      expect(err).toBeInstanceOf(HuefyError);
+      const sdkError = err as HuefyError;
+      expect(sdkError.statusCode).toBe(402);
+      expect(sdkError.code).toBe(ErrorCode.INSUFFICIENT_QUOTA);
+      expect(sdkError.recoverable).toBe(false);
+      expect(sdkError.message).toBe('Quota exceeded');
+      expect(sdkError.details).toEqual({
+        error: 'Quota exceeded',
+        code: 'INSUFFICIENT_QUOTA',
+        details: { limit: 1000, used: 1000 },
+      });
+    }
+  });
+
   it('throws HuefyError on 5xx response', async () => {
     mockFetch.mockResolvedValue({
       ok: false,

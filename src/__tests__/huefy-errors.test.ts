@@ -7,6 +7,7 @@ import {
   InvalidRecipientError,
   ProviderError,
   RateLimitError,
+  InsufficientQuotaError,
   createHuefyErrorFromResponse,
   isHuefyDomainError,
 } from '../errors/huefy-errors';
@@ -38,9 +39,22 @@ describe('Huefy Domain Errors', () => {
     expect(err.statusCode).toBe(429);
   });
 
+  it('InsufficientQuotaError has billing status and code', () => {
+    const err = new InsufficientQuotaError('upgrade required');
+    expect(err.code).toBe(HuefyErrorCode.INSUFFICIENT_QUOTA);
+    expect(err.statusCode).toBe(402);
+    expect(err.numericCode).toBe(2114);
+  });
+
   it('createHuefyErrorFromResponse maps codes correctly', () => {
     const err = createHuefyErrorFromResponse({ error: 'bad key', code: 'INVALID_API_KEY' }, 401);
     expect(err).toBeInstanceOf(AuthenticationError);
+  });
+
+  it('createHuefyErrorFromResponse maps insufficient quota correctly', () => {
+    const err = createHuefyErrorFromResponse({ error: 'quota exceeded', code: 'INSUFFICIENT_QUOTA' }, 402);
+    expect(err).toBeInstanceOf(InsufficientQuotaError);
+    expect(err.statusCode).toBe(402);
   });
 
   it('isHuefyDomainError detects domain errors', () => {
