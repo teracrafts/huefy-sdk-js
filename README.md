@@ -100,6 +100,7 @@ import {
   AuthenticationError,
   CircuitOpenError,
   HuefyError,
+  InsufficientQuotaError,
   RateLimitError,
 } from '@teracrafts/huefy';
 
@@ -113,6 +114,8 @@ try {
 } catch (err) {
   if (err instanceof AuthenticationError) {
     console.error('Invalid API key');
+  } else if (err instanceof InsufficientQuotaError) {
+    console.error('Quota exhausted. Upgrade or wait for the next billing period');
   } else if (err instanceof RateLimitError) {
     console.error(`Rate limited. Retry after ${err.retryAfter}s`);
   } else if (err instanceof CircuitOpenError) {
@@ -129,6 +132,7 @@ try {
 |-------|------|---------|
 | `HuefyInitError` | 1001 | Client failed to initialise |
 | `AuthenticationError` | `INVALID_API_KEY` | API key rejected |
+| `InsufficientQuotaError` | `INSUFFICIENT_QUOTA` | Account or organization quota exhausted |
 | `RateLimitError` | `RATE_LIMIT_EXCEEDED` | Rate limit exceeded |
 | `TemplateNotFoundError` | `TEMPLATE_NOT_FOUND` | Template key not found |
 | `HuefyError` | `ErrorCode.*` | Transport or HTTP-layer SDK failure |
