@@ -5,6 +5,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
@@ -28,7 +31,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teracrafts/huefy-sdk.git",
+    "url": "git+https://github.com/teracrafts/huefy-sdk.git",
     "directory": "sdks/typescript"
   },
   "keywords": ["huefy", "sdk", "api", "client"]
