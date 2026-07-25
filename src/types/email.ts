@@ -110,6 +110,34 @@ export interface SendBulkEmailsResponse {
   correlationId: string;
 }
 
+export interface ValidateTemplateInput {
+  templateKey: string;
+  templateVersion?: number;
+  testData?: EmailData;
+  correlationId?: string;
+}
+
+export interface ValidateTemplateRequest {
+  templateKey: string;
+  templateVersion?: number;
+  testData?: Record<string, unknown>;
+  correlationId?: string;
+}
+
+export interface ValidateTemplateResponseData {
+  isValid: boolean;
+  errors?: string[];
+  warnings?: string[];
+  variables?: string[];
+  validatedAt: string;
+}
+
+export interface ValidateTemplateResponse {
+  success: boolean;
+  data: ValidateTemplateResponseData;
+  correlationId: string;
+}
+
 export interface HealthResponseData {
   status: string;
   timestamp: string;

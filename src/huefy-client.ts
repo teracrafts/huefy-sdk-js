@@ -7,6 +7,9 @@ import type {
   SendBulkEmailsInput,
   SendBulkEmailsRequest,
   SendBulkEmailsResponse,
+  ValidateTemplateInput,
+  ValidateTemplateRequest,
+  ValidateTemplateResponse,
   HealthResponse,
   EmailRecipient,
   SingleRecipient,
@@ -105,6 +108,34 @@ export class HuefyEmailClient extends BaseClient {
     };
 
     return this.http.request<SendBulkEmailsResponse>('/emails/send-bulk', {
+      method: 'POST',
+      body: payload as unknown as Record<string, unknown>,
+    });
+  }
+
+  async validateTemplate(input: ValidateTemplateInput): Promise<ValidateTemplateResponse> {
+    const { templateKey, templateVersion, testData, correlationId } = input;
+
+    if (!templateKey || typeof templateKey !== 'string' || templateKey.trim().length === 0) {
+      throw new HuefyDomainError(
+        'templateKey is required',
+        HuefyErrorCode.VALIDATION_ERROR,
+        400,
+      );
+    }
+
+    if (testData !== undefined) {
+      warnIfPotentialPII(testData as Record<string, unknown>, 'template validation data', this.logger);
+    }
+
+    const payload: ValidateTemplateRequest = {
+      templateKey: templateKey.trim(),
+      ...(templateVersion !== undefined ? { templateVersion } : {}),
+      ...(testData !== undefined ? { testData } : {}),
+      ...(correlationId !== undefined ? { correlationId } : {}),
+    };
+
+    return this.http.request<ValidateTemplateResponse>('/emails/validate-template', {
       method: 'POST',
       body: payload as unknown as Record<string, unknown>,
     });

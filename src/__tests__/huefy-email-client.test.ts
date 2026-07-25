@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HuefyEmailClient } from '../huefy-client';
+import { HuefyDomainError } from '../errors/huefy-errors';
 
 vi.mock('../http/http-client', () => {
   const mockRequest = vi.fn();
@@ -144,5 +145,48 @@ describe('HuefyEmailClient', () => {
         providerType: undefined,
       },
     });
+  });
+
+  it('validates templates with optional version, test data, and correlation id', async () => {
+    mockRequest.mockResolvedValue({
+      success: true,
+      correlationId: 'corr-validate-1',
+      data: {
+        isValid: true,
+        errors: [],
+        warnings: [],
+        variables: ['firstName'],
+        validatedAt: '2026-07-25T18:00:00Z',
+      },
+    });
+    const client = new HuefyEmailClient({ apiKey: 'sdk_test_key_123' });
+
+    const response = await client.validateTemplate({
+      templateKey: ' welcome-email ',
+      templateVersion: 3,
+      testData: { firstName: 'Ada' },
+      correlationId: 'corr-validate-1',
+    });
+
+    expect(mockRequest).toHaveBeenCalledWith('/emails/validate-template', {
+      method: 'POST',
+      body: {
+        templateKey: 'welcome-email',
+        templateVersion: 3,
+        testData: { firstName: 'Ada' },
+        correlationId: 'corr-validate-1',
+      },
+    });
+    expect(response.data.isValid).toBe(true);
+    expect(response.data.variables).toEqual(['firstName']);
+  });
+
+  it('rejects validateTemplate without a template key', async () => {
+    const client = new HuefyEmailClient({ apiKey: 'sdk_test_key_123' });
+
+    await expect(client.validateTemplate({
+      templateKey: ' ',
+    })).rejects.toBeInstanceOf(HuefyDomainError);
+    expect(mockRequest).not.toHaveBeenCalled();
   });
 });
