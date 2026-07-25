@@ -1,5 +1,6 @@
 import type { RetryConfig } from '../http/retry';
 import type { CircuitBreakerConfig } from '../http/circuit-breaker';
+import type { RateLimitInfo } from '../http/http-client';
 import type { Logger } from '../utils/logger';
 
 export interface HuefyConfig {
@@ -21,8 +22,13 @@ export interface HuefyConfig {
   enableRequestSigning?: boolean;
   /** Enable error message sanitization */
   enableErrorSanitization?: boolean;
+  /** Called after each response when rate limit headers are present */
+  onRateLimitUpdate?: (info: RateLimitInfo) => void;
+  /** Called when remaining requests fall below 20% of limit */
+  onRateLimitWarning?: (info: RateLimitInfo) => void;
 }
 
 export type { RetryConfig } from '../http/retry';
 export type { CircuitBreakerConfig } from '../http/circuit-breaker';
+export type { RateLimitInfo } from '../http/http-client';
 export type { Logger } from '../utils/logger';

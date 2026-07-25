@@ -36,6 +36,8 @@ export class HuefyClient {
       logger,
       secondaryApiKey: config.secondaryApiKey,
       enableRequestSigning: config.enableRequestSigning,
+      onRateLimitUpdate: config.onRateLimitUpdate,
+      onRateLimitWarning: config.onRateLimitWarning,
     });
   }
 

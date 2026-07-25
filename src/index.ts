@@ -6,6 +6,7 @@ export type {
   HuefyConfig,
   RetryConfig,
   CircuitBreakerConfig,
+  RateLimitInfo,
   Logger,
 } from './types/config';
 

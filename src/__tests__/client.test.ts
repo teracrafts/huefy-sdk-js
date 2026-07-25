@@ -21,6 +21,8 @@ async function getMocks() {
   const mod = await import('../http/http-client');
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockHttpClient: (mod as any).HttpClient as ReturnType<typeof vi.fn>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockRequest: (mod as any).__mockRequest as ReturnType<typeof vi.fn>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockClose: (mod as any).__mockClose as ReturnType<typeof vi.fn>,
@@ -28,13 +30,16 @@ async function getMocks() {
 }
 
 describe('HuefyClient', () => {
+  let mockHttpClient: ReturnType<typeof vi.fn>;
   let mockRequest: ReturnType<typeof vi.fn>;
   let mockClose: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     const mocks = await getMocks();
+    mockHttpClient = mocks.mockHttpClient;
     mockRequest = mocks.mockRequest;
     mockClose = mocks.mockClose;
+    mockHttpClient.mockClear();
     mockRequest.mockReset();
     mockClose.mockReset();
   });
@@ -75,6 +80,25 @@ describe('HuefyClient', () => {
       });
 
       expect(client).toBeDefined();
+    });
+
+    it('forwards rate-limit callbacks to HttpClient', () => {
+      const onRateLimitUpdate = vi.fn();
+      const onRateLimitWarning = vi.fn();
+
+      new HuefyClient({
+        apiKey: 'sdk_test_key_123',
+        onRateLimitUpdate,
+        onRateLimitWarning,
+      });
+
+      expect(mockHttpClient).toHaveBeenCalledWith(
+        'sdk_test_key_123',
+        expect.objectContaining({
+          onRateLimitUpdate,
+          onRateLimitWarning,
+        }),
+      );
     });
   });
 
