@@ -194,6 +194,15 @@ describe('retry', () => {
       },
     );
 
+    it('honors explicit recoverable false over retryable status codes', () => {
+      const error = Object.assign(new Error('do not retry'), {
+        statusCode: 429,
+        recoverable: false,
+      });
+
+      expect(isRetryableError(error)).toBe(false);
+    });
+
     it('returns false for errors without a status code', () => {
       // isRetryableError only checks statusCode/status properties,
       // so errors without a numeric status code are not retryable

@@ -129,9 +129,13 @@ export function isRetryableError(
   }
 
   // Check recoverable flag first — this covers network and timeout errors
-  // that have no statusCode.
+  // that have no statusCode. An explicit false from the server must also
+  // override retryable HTTP status defaults.
   if ((error as ErrorWithRecoverable).recoverable === true) {
     return true;
+  }
+  if ((error as ErrorWithRecoverable).recoverable === false) {
+    return false;
   }
 
   const statusError = error as ErrorWithStatus;

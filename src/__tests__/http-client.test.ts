@@ -138,6 +138,48 @@ describe('HttpClient', () => {
     }
   });
 
+  it('preserves backend SDK error envelope metadata', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      text: () => Promise.resolve(JSON.stringify({
+        success: false,
+        error: {
+          code: 'EMAIL_SUPPRESSED',
+          message: 'Recipient is suppressed',
+          correlationId: 'corr-email-1',
+          retryable: false,
+          details: { email: 'blocked@example.com', reason: 'bounce' },
+        },
+      })),
+      headers: new Headers({ 'content-type': 'application/json' }),
+    });
+
+    await expect(client.request('/emails/send', { method: 'POST' })).rejects.toThrow(HuefyError);
+
+    try {
+      await client.request('/emails/send', { method: 'POST' });
+    } catch (err) {
+      expect(err).toBeInstanceOf(HuefyError);
+      const sdkError = err as HuefyError;
+      expect(sdkError.statusCode).toBe(409);
+      expect(sdkError.code).toBe(ErrorCode.EMAIL_SUPPRESSED);
+      expect(sdkError.message).toBe('Recipient is suppressed');
+      expect(sdkError.requestId).toBe('corr-email-1');
+      expect(sdkError.recoverable).toBe(false);
+      expect(sdkError.details).toEqual({
+        success: false,
+        error: {
+          code: 'EMAIL_SUPPRESSED',
+          message: 'Recipient is suppressed',
+          correlationId: 'corr-email-1',
+          retryable: false,
+          details: { email: 'blocked@example.com', reason: 'bounce' },
+        },
+      });
+    }
+  });
+
   it('throws HuefyError on 5xx response', async () => {
     mockFetch.mockResolvedValue({
       ok: false,

@@ -12,6 +12,8 @@ import {
   isHuefyDomainError,
 } from '../errors/huefy-errors';
 import { HuefyErrorCode } from '../errors/huefy-error-codes';
+import { HuefyError } from '../errors/huefy-error';
+import { ErrorCode } from '../errors/error-codes';
 
 describe('Huefy Domain Errors', () => {
   it('AuthenticationError has correct properties', () => {
@@ -67,5 +69,64 @@ describe('Huefy Domain Errors', () => {
     const json = err.toJSON();
     expect(json.code).toBe(HuefyErrorCode.INVALID_TEMPLATE_DATA);
     expect(json.numericCode).toBe(2102);
+  });
+
+  it('HuefyError.createErrorFromResponse unwraps backend SDK error envelopes', () => {
+    const err = HuefyError.createErrorFromResponse(409, {
+      success: false,
+      error: {
+        code: 'TEMPLATE_NOT_PUBLISHED',
+        message: 'Template is not published',
+        correlationId: 'corr-123',
+        retryable: false,
+        details: { templateKey: 'welcome' },
+      },
+    });
+
+    expect(err.code).toBe(ErrorCode.TEMPLATE_NOT_PUBLISHED);
+    expect(err.message).toBe('Template is not published');
+    expect(err.requestId).toBe('corr-123');
+    expect(err.recoverable).toBe(false);
+    expect(err.details).toEqual({
+      success: false,
+      error: {
+        code: 'TEMPLATE_NOT_PUBLISHED',
+        message: 'Template is not published',
+        correlationId: 'corr-123',
+        retryable: false,
+        details: { templateKey: 'welcome' },
+      },
+    });
+  });
+
+  it('HuefyError.createErrorFromResponse preserves backend retry hints', () => {
+    const err = HuefyError.createErrorFromResponse(429, {
+      success: false,
+      error: {
+        code: 'PROVIDER_RATE_LIMIT',
+        message: 'Provider rate limit exceeded',
+        retryable: true,
+        retryAfter: 60,
+      },
+    });
+
+    expect(err.code).toBe(ErrorCode.PROVIDER_RATE_LIMIT);
+    expect(err.recoverable).toBe(true);
+    expect(err.retryAfter).toBe(60);
+  });
+
+  it('HuefyError.createErrorFromResponse prefers Retry-After header over body retryAfter', () => {
+    const err = HuefyError.createErrorFromResponse(429, {
+      success: false,
+      error: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many requests',
+        retryable: true,
+        retryAfter: 60,
+      },
+    }, '5');
+
+    expect(err.code).toBe(ErrorCode.RATE_LIMIT_EXCEEDED);
+    expect(err.retryAfter).toBe(5);
   });
 });

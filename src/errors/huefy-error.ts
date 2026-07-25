@@ -116,17 +116,31 @@ export class HuefyError extends Error {
     retryAfterHeader?: string | null,
   ): HuefyError {
     const parsed: Record<string, unknown> = typeof body === 'string' ? { raw: body } : body;
-    const serverMessage =
-      (typeof parsed.message === 'string' ? parsed.message : undefined) ??
-      (typeof parsed.error === 'string' ? parsed.error : undefined) ??
-      `Request failed with status ${status}`;
-    const requestId = typeof parsed.requestId === 'string' ? parsed.requestId : undefined;
+    const serverError = extractServerError(parsed);
 
     // Parse the Retry-After header (seconds) — used for 429 and optionally 503.
     const retryAfterMs = parseRetryAfter(retryAfterHeader ?? null);
     // Convert milliseconds to seconds for the error's retryAfter field.
     const retryAfterSec =
       retryAfterMs != null ? Math.ceil(retryAfterMs / 1000) : undefined;
+    const retryAfter = retryAfterSec ?? serverError.retryAfter;
+    const serverMessage =
+      serverError.message ??
+      (typeof parsed.message === 'string' ? parsed.message : undefined) ??
+      (typeof parsed.error === 'string' ? parsed.error : undefined) ??
+      `Request failed with status ${status}`;
+    const requestId = serverError.requestId ??
+      (typeof parsed.requestId === 'string' ? parsed.requestId : undefined);
+
+    if (serverError.code) {
+      return new HuefyError(serverMessage, serverError.code, {
+        statusCode: status,
+        recoverable: serverError.retryable ?? isRecoverableCode(serverError.code),
+        retryAfter,
+        requestId,
+        details: parsed,
+      });
+    }
 
     // 401 Unauthorized
     if (status === 401) {
@@ -176,6 +190,7 @@ export class HuefyError extends Error {
       return new HuefyError(serverMessage, ErrorCode.INSUFFICIENT_QUOTA, {
         statusCode: status,
         recoverable: false,
+        retryAfter,
         requestId,
         details: parsed,
       });
@@ -191,7 +206,7 @@ export class HuefyError extends Error {
       return new HuefyError(serverMessage, code, {
         statusCode: status,
         recoverable: true,
-        retryAfter: retryAfterSec,
+        retryAfter,
         requestId,
         details: parsed,
       });
@@ -205,4 +220,50 @@ export class HuefyError extends Error {
       details: parsed,
     });
   }
+}
+
+interface ExtractedServerError {
+  code?: ErrorCode;
+  message?: string;
+  requestId?: string;
+  retryable?: boolean;
+  retryAfter?: number;
+}
+
+function extractServerError(parsed: Record<string, unknown>): ExtractedServerError {
+  const envelopeError = isRecord(parsed.error) ? parsed.error : undefined;
+  const source = envelopeError ?? parsed;
+
+  return {
+    code: parseErrorCode(source.code),
+    message: typeof source.message === 'string'
+      ? source.message
+      : typeof parsed.error === 'string'
+        ? parsed.error
+        : undefined,
+    requestId: typeof source.correlationId === 'string'
+      ? source.correlationId
+      : typeof parsed.correlationId === 'string'
+        ? parsed.correlationId
+        : undefined,
+    retryable: typeof source.retryable === 'boolean' ? source.retryable : undefined,
+    retryAfter: typeof source.retryAfter === 'number'
+      ? source.retryAfter
+      : typeof source.retry_after === 'number'
+        ? source.retry_after
+        : undefined,
+  };
+}
+
+function parseErrorCode(code: unknown): ErrorCode | undefined {
+  if (typeof code !== 'string') {
+    return undefined;
+  }
+  return (Object.values(ErrorCode) as string[]).includes(code)
+    ? code as ErrorCode
+    : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
