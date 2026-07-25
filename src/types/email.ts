@@ -19,6 +19,8 @@ export interface SendEmailInput {
   data: EmailData;
   recipient: SingleRecipient;
   provider?: EmailProvider;
+  /** Optional caller-supplied key used to deduplicate retried single sends. */
+  idempotencyKey?: string;
 }
 
 /** @deprecated Use SendEmailInput */
@@ -35,6 +37,7 @@ export interface SendEmailRequest {
   replyTo?: string;
   providerType?: string;
   correlationId?: string;
+  idempotencyKey?: string;
   metadata?: Record<string, unknown>;
 }
 

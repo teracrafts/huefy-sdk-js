@@ -25,7 +25,7 @@ export class HuefyEmailClient extends BaseClient {
   }
 
   async sendEmail(input: SendEmailInput): Promise<SendEmailResponse> {
-    const { templateKey, data, recipient, provider } = input;
+    const { templateKey, data, recipient, provider, idempotencyKey } = input;
 
     warnIfPotentialPII(data as Record<string, unknown>, 'email template data', this.logger);
 
@@ -40,6 +40,7 @@ export class HuefyEmailClient extends BaseClient {
     }
 
     const normalizedRecipient = normalizeRecipient(recipient);
+    const normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
     if (typeof normalizedRecipient !== 'string' && normalizedRecipient.data) {
       warnIfPotentialPII(
         normalizedRecipient.data as Record<string, unknown>,
@@ -53,6 +54,7 @@ export class HuefyEmailClient extends BaseClient {
       data,
       recipient: normalizedRecipient,
       providerType: provider,
+      idempotencyKey: normalizedIdempotencyKey,
     };
 
     return this.http.request<SendEmailResponse>('/emails/send', {
@@ -172,4 +174,24 @@ function normalizeBulkRecipient(recipient: SendBulkEmailsInput['recipients'][num
     ...(recipient.type !== undefined ? { type: recipient.type.trim().toLowerCase() as EmailRecipient['type'] } : {}),
     ...(recipient.data !== undefined ? { data: recipient.data } : {}),
   };
+}
+
+function normalizeIdempotencyKey(idempotencyKey: string | undefined): string {
+  const normalized = idempotencyKey?.trim() || generateIdempotencyKey();
+  if (normalized.length > 128) {
+    throw new HuefyDomainError(
+      'idempotencyKey must be 128 characters or fewer',
+      HuefyErrorCode.VALIDATION_ERROR,
+      400,
+    );
+  }
+  return normalized;
+}
+
+function generateIdempotencyKey(): string {
+  const randomUUID = globalThis.crypto?.randomUUID;
+  if (typeof randomUUID === 'function') {
+    return `idem_${randomUUID.call(globalThis.crypto)}`;
+  }
+  return `idem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 18)}`;
 }

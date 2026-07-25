@@ -57,6 +57,7 @@ describe('HuefyEmailClient', () => {
         recipient: 'user@example.com',
         data: { firstName: 'Ada' },
         providerType: undefined,
+        idempotencyKey: expect.any(String),
       },
     });
   });
@@ -85,6 +86,7 @@ describe('HuefyEmailClient', () => {
         },
         data: { firstName: 'Ada' },
         providerType: undefined,
+        idempotencyKey: expect.any(String),
       },
     });
   });
@@ -113,8 +115,43 @@ describe('HuefyEmailClient', () => {
         },
         data: { firstName: 'Ada' },
         providerType: undefined,
+        idempotencyKey: expect.any(String),
       },
     });
+  });
+
+  it('uses caller-provided idempotency keys for single sends', async () => {
+    const client = new HuefyEmailClient({ apiKey: 'sdk_test_key_123' });
+
+    await client.sendEmail({
+      templateKey: 'welcome-email',
+      recipient: 'user@example.com',
+      data: { firstName: 'Ada' },
+      idempotencyKey: ' idem_custom_123 ',
+    });
+
+    expect(mockRequest).toHaveBeenCalledWith('/emails/send', {
+      method: 'POST',
+      body: {
+        templateKey: 'welcome-email',
+        recipient: 'user@example.com',
+        data: { firstName: 'Ada' },
+        providerType: undefined,
+        idempotencyKey: 'idem_custom_123',
+      },
+    });
+  });
+
+  it('rejects idempotency keys longer than the backend limit', async () => {
+    const client = new HuefyEmailClient({ apiKey: 'sdk_test_key_123' });
+
+    await expect(client.sendEmail({
+      templateKey: 'welcome-email',
+      recipient: 'user@example.com',
+      data: { firstName: 'Ada' },
+      idempotencyKey: 'x'.repeat(129),
+    })).rejects.toBeInstanceOf(HuefyDomainError);
+    expect(mockRequest).not.toHaveBeenCalled();
   });
 
   it('normalizes and validates bulk recipients', async () => {
